@@ -2,10 +2,10 @@ export default {
   routes: [
     {
       method: "GET",
-      path: "/lesson-progresses",
-      handler: "lesson-progress.find",
-      config: {
-        policies: ["global::is-student-record-owner"],
+    path: "/lesson-progresses/course/:courseId",
+    handler: "lesson-progress.getCourseProgress",
+    config: {
+        policies: [],
       },
     },
     {
