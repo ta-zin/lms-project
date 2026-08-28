@@ -21,7 +21,7 @@ export default {
       path: "/courses",
       handler: "course.create",
       config: {
-        policies: ["global::is-owner"],
+        policies: [],
       },
     },
     {
