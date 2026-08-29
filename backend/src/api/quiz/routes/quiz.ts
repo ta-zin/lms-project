@@ -1,16 +1,44 @@
-/**
- * quiz router
- */
-
-import { factories } from '@strapi/strapi';
-
-export default factories.createCoreRouter('api::quiz.quiz', {
-  config: {
-    update: {
-      policies: ['global::is-quiz-course-owner'],
+export default {
+  routes: [
+    {
+      method: "GET",
+      path: "/quizzes",
+      handler: "quiz.find",
+      config: {
+        policies: [],
+      },
     },
-    delete: {
-      policies: ['global::is-quiz-course-owner'],
+    {
+      method: "GET",
+      path: "/quizzes/:documentId",
+      handler: "quiz.findOne",
+      config: {
+        policies: [],
+      },
     },
-  },
-});
+    {
+      method: "POST",
+      path: "/quizzes",
+      handler: "quiz.create",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "PUT",
+      path: "/quizzes/:documentId",
+      handler: "quiz.update",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/quizzes/:documentId",
+      handler: "quiz.delete",
+      config: {
+        policies: [],
+      },
+    },
+  ],
+};
