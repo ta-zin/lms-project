@@ -7,30 +7,32 @@ export default factories.createCoreController(
       const user = ctx.state.user;
 
       if (!user) {
-        return ctx.unauthorized();
+        return ctx.unauthorized("Authentication required");
       }
 
-      const userWithRole = await strapi
+      const role = await strapi
         .query("plugin::users-permissions.user")
         .findOne({
           where: { id: user.id },
           populate: ["role"],
         });
 
-      if (userWithRole?.role?.name !== "Student") {
+      if (role?.role?.name !== "Student") {
         return ctx.forbidden("Only students can enroll");
       }
 
-      const courseId = ctx.request.body?.data?.course;
+      const data = {
+        ...(ctx.request.body?.data || {}),
+      };
 
-      if (!courseId) {
+      if (!data.course) {
         return ctx.badRequest("Course is required");
       }
 
-      const course = await strapi.db
-        .query("api::course.course")
+      const course = await strapi
+        .documents("api::course.course")
         .findOne({
-          where: { id: courseId },
+          documentId: data.course,
         });
 
       if (!course) {
@@ -42,7 +44,7 @@ export default factories.createCoreController(
         .findOne({
           where: {
             student: user.id,
-            course: courseId,
+            course: course.id,
           },
         });
 
@@ -50,99 +52,135 @@ export default factories.createCoreController(
         return ctx.badRequest("Already enrolled");
       }
 
-      const enrollment = await strapi.db
-        .query("api::enrollment.enrollment")
-        .create({
-          data: {
-            student: user.id,
-            course: courseId,
-          },
-        });
+      try {
+        const enrollment = await strapi
+          .documents("api::enrollment.enrollment")
+          .create({
+            data: {
+              ...data,
+              student: user.id,
+              course: course.documentId,
+            },
+            status: "published",
+          });
 
-      return ctx.created(enrollment);
+        return { data: enrollment };
+      } catch (error) {
+        strapi.log.error("CREATE ENROLLMENT ERROR", error);
+
+        return ctx.internalServerError(
+          "Failed to create enrollment"
+        );
+      }
     },
 
-    async find(ctx) {
-      const user = ctx.state.user;
+    
+async find(ctx) {
+  const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized();
-      }
+  if (!user) {
+    return ctx.unauthorized("Authentication required");
+  }
 
-      const userWithRole = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: { id: user.id },
-          populate: ["role"],
-        });
+  const role = await strapi
+    .query("plugin::users-permissions.user")
+    .findOne({
+      where: { id: user.id },
+      populate: ["role"],
+    });
 
-      if (userWithRole?.role?.type === "admin") {
-        return await super.find(ctx);
-      }
+  const roleName = role?.role?.name;
 
-      if (userWithRole?.role?.name !== "Student") {
-        return ctx.forbidden();
-      }
+  if (
+    roleName === "Admin" ||
+    roleName === "Content Manager"
+  ) {
+    return await super.find(ctx);
+  }
 
-      ctx.query = {
-        ...ctx.query,
+  if (roleName !== "Student") {
+    return ctx.forbidden();
+  }
+
+  try {
+    const enrollments = await strapi
+      .documents("api::enrollment.enrollment")
+      .findMany({
         filters: {
-          ...(ctx.query.filters || {}),
           student: {
             id: {
               $eq: user.id,
             },
           },
         },
-      };
+        populate: {
+          student: true,
+          course: true,
+        },
+      });
 
-      return await super.find(ctx);
-    },
+    return {
+      data: enrollments,
+    };
+  } catch (error) {
+    strapi.log.error("FIND ENROLLMENTS ERROR", error);
 
-    async findOne(ctx) {
-      const user = ctx.state.user;
+    return ctx.internalServerError(
+      "Failed to fetch enrollments"
+    );
+  }
+},
 
-      if (!user) {
-        return ctx.unauthorized();
-      }
+async findOne(ctx) {
+  const user = ctx.state.user;
 
-      const userWithRole = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: { id: user.id },
-          populate: ["role"],
-        });
+  if (!user) {
+    return ctx.unauthorized("Authentication required");
+  }
 
-      if (userWithRole?.role?.type === "admin") {
-        return await super.findOne(ctx);
-      }
+  const role = await strapi
+    .query("plugin::users-permissions.user")
+    .findOne({
+      where: { id: user.id },
+      populate: ["role"],
+    });
 
-      if (userWithRole?.role?.name !== "Student") {
-        return ctx.forbidden();
-      }
+  const roleName = role?.role?.name;
 
-      const { id } = ctx.params;
+  if (
+    roleName === "Admin" ||
+    roleName === "Content Manager"
+  ) {
+    return await super.findOne(ctx);
+  }
 
-      const enrollment = await strapi.db
-        .query("api::enrollment.enrollment")
-        .findOne({
-          where: { id },
-          populate: {
-            student: true,
-          },
-        });
+  if (roleName !== "Student") {
+    return ctx.forbidden();
+  }
 
-      if (!enrollment) {
-        return ctx.notFound();
-      }
+  const enrollment = await strapi
+    .documents("api::enrollment.enrollment")
+    .findOne({
+      documentId: ctx.params.documentId,
+      populate: {
+        student: true,
+        course: true,
+      },
+    });
 
-      if (enrollment.student?.id !== user.id) {
-        return ctx.forbidden(
-          "You can only view your own enrollment"
-        );
-      }
+  if (!enrollment) {
+    return ctx.notFound("Enrollment not found");
+  }
 
-      return await super.findOne(ctx);
-    },
+  if (enrollment.student?.id !== user.id) {
+    return ctx.forbidden(
+      "You can only view your own enrollment"
+    );
+  }
+
+  return {
+    data: enrollment,
+  };
+},
   })
 );

@@ -1,3 +1,4 @@
+
 export default {
   routes: [
     {
@@ -5,17 +6,19 @@ export default {
       path: "/enrollments",
       handler: "enrollment.find",
       config: {
-        policies: ["global::is-student-record-owner"],
+        policies: [],
       },
     },
+
     {
       method: "GET",
-      path: "/enrollments/:id",
+      path: "/enrollments/:documentId",
       handler: "enrollment.findOne",
       config: {
-        policies: ["global::is-student-record-owner"],
+        policies: [],
       },
     },
+
     {
       method: "POST",
       path: "/enrollments",
@@ -24,9 +27,10 @@ export default {
         policies: ["global::is-student-enrollment"],
       },
     },
+
     {
       method: "DELETE",
-      path: "/enrollments/:id",
+      path: "/enrollments/:documentId",
       handler: "enrollment.delete",
       config: {
         policies: ["global::is-student-record-owner"],
