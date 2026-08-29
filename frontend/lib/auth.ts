@@ -4,6 +4,13 @@ export type UserRole =
   | "Instructor"
   | "Student";
 
+export interface UserRoleRelation {
+  id: number;
+  name: UserRole;
+  type?: string;
+  documentId?: string;
+}
+
 export interface User {
   id: number;
   documentId?: string;
@@ -11,12 +18,7 @@ export interface User {
   email: string;
   confirmed?: boolean;
   blocked?: boolean;
-  role?: {
-    id: number;
-    name: UserRole;
-    type?: string;
-    documentId?: string;
-  };
+  role?: UserRoleRelation;
 }
 
 export interface AuthSession {
@@ -27,20 +29,42 @@ export interface AuthSession {
 const AUTH_STORAGE_KEY = "lms_auth";
 
 export function saveAuth(session: AuthSession): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
 
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify(session)
+  );
 }
 
 export function getAuth(): AuthSession | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    return null;
+  }
 
   const raw = localStorage.getItem(AUTH_STORAGE_KEY);
 
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
 
   try {
-    return JSON.parse(raw) as AuthSession;
+    const parsed = JSON.parse(raw);
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.jwt !== "string" ||
+      !parsed.user ||
+      typeof parsed.user !== "object"
+    ) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+
+    return parsed as AuthSession;
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
@@ -64,21 +88,29 @@ export function isLoggedIn(): boolean {
 }
 
 export function logout(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
 
   localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
 export function hasRole(
-  allowedRoles: UserRole[],
+  allowedRoles: readonly UserRole[],
   user: User | null = getCurrentUser()
 ): boolean {
-  if (!user?.role?.name) return false;
+  const role = user?.role?.name;
 
-  return allowedRoles.includes(user.role.name);
+  if (!role) {
+    return false;
+  }
+
+  return allowedRoles.includes(role);
 }
 
-export function getDashboardPath(role: UserRole | null): string {
+export function getDashboardPath(
+  role: UserRole | null
+): string {
   switch (role) {
     case "Admin":
       return "/admin";
@@ -93,6 +125,6 @@ export function getDashboardPath(role: UserRole | null): string {
       return "/dashboard";
 
     default:
-      return "/";
+      return "/login";
   }
 }

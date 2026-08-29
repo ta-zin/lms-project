@@ -8,8 +8,8 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  apiFetch,
   ApiError,
+  apiFetch,
 } from "@/lib/api";
 
 import {
@@ -49,6 +49,10 @@ export default function RegisterPage() {
   ) {
     event.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
     setError("");
 
     if (password !== confirmPassword) {
@@ -68,39 +72,48 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response =
+      const registerResponse =
         await apiFetch<RegisterResponse>(
           "/auth/local/register",
           {
             method: "POST",
             body: JSON.stringify({
-              username,
-              email,
+              username: username.trim(),
+              email: email.trim(),
               password,
             }),
           }
         );
 
-      const me = await apiFetch<User>(
-        "/users/me",
-        {
-          method: "GET",
-          token: response.jwt,
-        }
-      );
+      const currentUser =
+        await apiFetch<User>(
+          "/users/me?populate=role",
+          {
+            method: "GET",
+            token: registerResponse.jwt,
+          }
+        );
+
+      if (!currentUser.role?.name) {
+        throw new Error(
+          "The account was created, but no valid LMS role was returned."
+        );
+      }
 
       saveAuth({
-        jwt: response.jwt,
-        user: me,
+        jwt: registerResponse.jwt,
+        user: currentUser,
       });
 
       router.replace(
         getDashboardPath(
-          me.role?.name ?? "Student"
+          currentUser.role.name
         )
       );
     } catch (error) {
       if (error instanceof ApiError) {
+        setError(error.message);
+      } else if (error instanceof Error) {
         setError(error.message);
       } else {
         setError(
@@ -114,20 +127,20 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-12">
-      <div className="mx-auto max-w-md">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-md items-center">
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8">
             <p className="text-sm font-semibold text-blue-600">
               LMS Platform
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold text-slate-900">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
               Create your account
             </h1>
 
-            <p className="mt-2 text-sm text-slate-600">
-              New accounts are created as
-              students.
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              New public accounts are standard
+              student accounts.
             </p>
           </div>
 
@@ -155,7 +168,7 @@ export default function RegisterPage() {
                 required
                 minLength={3}
                 autoComplete="username"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
 
@@ -178,7 +191,7 @@ export default function RegisterPage() {
                 }
                 required
                 autoComplete="email"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
 
@@ -202,7 +215,7 @@ export default function RegisterPage() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
 
@@ -226,12 +239,15 @@ export default function RegisterPage() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
                 {error}
               </div>
             )}

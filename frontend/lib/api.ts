@@ -23,7 +23,7 @@ type ApiFetchOptions = RequestInit & {
 function getApiUrl(): string {
   if (!API_URL) {
     throw new Error(
-      "NEXT_PUBLIC_API_URL is not configured. Add it to your .env.local file."
+      "NEXT_PUBLIC_API_URL is not configured."
     );
   }
 
@@ -42,17 +42,20 @@ export async function apiFetch<T = unknown>(
 
   const requestHeaders = new Headers(headers);
 
+  requestHeaders.set(
+    "Accept",
+    "application/json"
+  );
+
   if (
-    !requestHeaders.has("Content-Type") &&
-    requestOptions.body
+    requestOptions.body &&
+    !requestHeaders.has("Content-Type")
   ) {
     requestHeaders.set(
       "Content-Type",
       "application/json"
     );
   }
-
-  requestHeaders.set("Accept", "application/json");
 
   if (token) {
     requestHeaders.set(
@@ -61,12 +64,12 @@ export async function apiFetch<T = unknown>(
     );
   }
 
-  const cleanEndpoint = endpoint.startsWith("/")
+  const normalizedEndpoint = endpoint.startsWith("/")
     ? endpoint
     : `/${endpoint}`;
 
   const response = await fetch(
-    `${getApiUrl()}${cleanEndpoint}`,
+    `${getApiUrl()}${normalizedEndpoint}`,
     {
       ...requestOptions,
       headers: requestHeaders,
@@ -82,7 +85,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    let message = `API Error: ${response.status}`;
+    let errorMessage = `API Error: ${response.status}`;
 
     if (
       typeof responseData === "object" &&
@@ -97,12 +100,12 @@ export async function apiFetch<T = unknown>(
         "message" in error &&
         typeof error.message === "string"
       ) {
-        message = error.message;
+        errorMessage = error.message;
       }
     }
 
     throw new ApiError(
-      message,
+      errorMessage,
       response.status,
       responseData
     );
