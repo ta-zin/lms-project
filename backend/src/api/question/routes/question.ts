@@ -1,16 +1,44 @@
-/**
- * question router
- */
-
-import { factories } from '@strapi/strapi';
-
-export default factories.createCoreRouter('api::question.question', {
-  config: {
-    update: {
-      policies: ['global::is-question-quiz-owner'],
+export default {
+  routes: [
+    {
+      method: "GET",
+      path: "/questions",
+      handler: "question.find",
+      config: {
+        policies: [],
+      },
     },
-    delete: {
-      policies: ['global::is-question-quiz-owner'],
+    {
+      method: "GET",
+      path: "/questions/:documentId",
+      handler: "question.findOne",
+      config: {
+        policies: [],
+      },
     },
-  },
-});
+    {
+      method: "POST",
+      path: "/questions",
+      handler: "question.create",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "PUT",
+      path: "/questions/:documentId",
+      handler: "question.update",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/questions/:documentId",
+      handler: "question.delete",
+      config: {
+        policies: [],
+      },
+    },
+  ],
+};
