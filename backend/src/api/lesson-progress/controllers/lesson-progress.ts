@@ -1,114 +1,242 @@
 import { factories } from "@strapi/strapi";
 
+const PROGRESS_UID = "api::lesson-progress.lesson-progress";
+const USER_UID = "plugin::users-permissions.user";
+const LESSON_UID = "api::lesson.lesson";
+const COURSE_UID = "api::course.course";
+const ENROLLMENT_UID = "api::enrollment.enrollment";
+
 export default factories.createCoreController(
-  "api::lesson-progress.lesson-progress",
+  PROGRESS_UID,
   ({ strapi }) => ({
+
     /**
-     * CREATE LESSON PROGRESS
-     *
-     * Student only.
-     * Student comes from JWT.
-     * Lesson comes from request body.
-     * Student must be enrolled in lesson's course.
+     * Get the current user's role from Users & Permissions.
      */
-    async create(ctx) {
+    async getCurrentUser(ctx: any) {
       const user = ctx.state.user;
 
       if (!user) {
-        return ctx.unauthorized("Authentication required");
+        return null;
       }
 
-      const currentUser = await strapi
-        .query("plugin::users-permissions.user")
+      const currentUser = await strapi.db
+        .query(USER_UID)
         .findOne({
           where: {
             id: user.id,
           },
-          populate: ["role"],
-        });
-
-      const roleName = currentUser?.role?.name;
-
-      if (roleName !== "Student") {
-        return ctx.forbidden(
-          "Only students can create lesson progress"
-        );
-      }
-
-      const data = {
-        ...(ctx.request.body?.data || {}),
-      };
-
-      if (!data.lesson) {
-        return ctx.badRequest("Lesson is required");
-      }
-
-      /**
-       * Strapi 5 Document Service
-       * Find lesson by documentId.
-       */
-      const lesson = await strapi
-        .documents("api::lesson.lesson")
-        .findOne({
-          documentId: data.lesson,
           populate: {
-            course: true,
+            role: true,
           },
         });
 
-      if (!lesson) {
-        return ctx.notFound("Lesson not found");
-      }
+      return currentUser;
+    },
 
-      if (!lesson.course) {
-        return ctx.badRequest(
-          "Lesson is not associated with a course"
-        );
-      }
-
-      /**
-       * Check whether the current student
-       * is enrolled in this lesson's course.
-       */
-      const enrollment = await strapi.db
-        .query("api::enrollment.enrollment")
-        .findOne({
-          where: {
-            student: user.id,
-            course: lesson.course.id,
-          },
-        });
-
-      if (!enrollment) {
-        return ctx.forbidden(
-          "You are not enrolled in this course"
-        );
-      }
-
-      /**
-       * Never trust student from request body.
-       * Always use authenticated user.
-       */
-      const progressData = {
-        ...data,
-        student: user.id,
-        lesson: lesson.documentId,
-      };
-
+    /**
+     * POST /api/lesson-progresses
+     *
+     * Student marks a lesson as completed.
+     *
+     * Rules:
+     * - Must be logged in
+     * - Must be Student
+     * - Lesson must exist
+     * - Lesson must belong to a course
+     * - Student must be enrolled in that course
+     * - Student is always taken from JWT
+     * - Duplicate progress is not created
+     */
+    async create(ctx) {
       try {
-        const progress = await strapi
-          .documents(
-            "api::lesson-progress.lesson-progress"
-          )
-          .create({
-            data: progressData,
-            status: "published",
+        const user = ctx.state.user;
+
+        if (!user) {
+          return ctx.unauthorized(
+            "Authentication required"
+          );
+        }
+
+        const currentUser =
+          await this.getCurrentUser(ctx);
+
+        if (!currentUser) {
+          return ctx.unauthorized(
+            "User not found"
+          );
+        }
+
+        const roleName =
+          currentUser.role?.name;
+
+        if (roleName !== "Student") {
+          return ctx.forbidden(
+            "Only students can mark lessons as complete"
+          );
+        }
+
+        const requestData =
+          ctx.request.body?.data ?? {};
+
+        /**
+         * IMPORTANT:
+         * The client sends the lesson documentId.
+         */
+        const lessonDocumentId =
+          requestData.lesson;
+
+        if (!lessonDocumentId) {
+          return ctx.badRequest(
+            "Lesson documentId is required"
+          );
+        }
+
+        /**
+         * Never trust:
+         *
+         * requestData.student
+         *
+         * Student comes from JWT.
+         */
+
+        /**
+         * Find lesson using Strapi 5 Document Service.
+         */
+        const lesson = await strapi
+          .documents(LESSON_UID)
+          .findOne({
+            documentId: lessonDocumentId,
+
+            populate: {
+              course: true,
+            },
           });
+
+        if (!lesson) {
+          return ctx.notFound(
+            "Lesson not found"
+          );
+        }
+
+        if (!lesson.course) {
+          return ctx.badRequest(
+            "Lesson is not associated with a course"
+          );
+        }
+
+        /**
+         * Check enrollment.
+         *
+         * Here we use the internal database query
+         * because Enrollment is a relational DB record.
+         */
+        const enrollment = await strapi.db
+          .query(ENROLLMENT_UID)
+          .findOne({
+            where: {
+              student: user.id,
+              course: lesson.course.id,
+            },
+          });
+
+        if (!enrollment) {
+          return ctx.forbidden(
+            "You are not enrolled in this course"
+          );
+        }
+
+        /**
+         * Check whether a progress record already exists.
+         *
+         * We use database IDs here:
+         *
+         * student -> user.id
+         * lesson  -> lesson.id
+         */
+        const existingProgress =
+          await strapi.db
+            .query(PROGRESS_UID)
+            .findOne({
+              where: {
+                student: user.id,
+                lesson: lesson.id,
+              },
+            });
+
+        /**
+         * If progress already exists,
+         * do not create another record.
+         */
+        if (existingProgress) {
+          const updatedProgress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .update({
+                where: {
+                  id: existingProgress.id,
+                },
+
+                data: {
+                  completed: true,
+                },
+
+                populate: {
+                  student: true,
+                  lesson: {
+                    populate: {
+                      course: true,
+                    },
+                  },
+                },
+              });
+
+          return {
+            data: updatedProgress,
+
+            meta: {
+              message:
+                "Lesson progress already existed and was marked complete",
+            },
+          };
+        }
+
+        /**
+         * Create new progress.
+         *
+         * IMPORTANT:
+         * Do NOT use:
+         *
+         * student: { connect: [...] }
+         * lesson: { connect: [...] }
+         *
+         * We are using the internal DB query here.
+         */
+        const progress =
+          await strapi.db
+            .query(PROGRESS_UID)
+            .create({
+              data: {
+                student: user.id,
+                lesson: lesson.id,
+                completed: true,
+              },
+
+              populate: {
+                student: true,
+                lesson: {
+                  populate: {
+                    course: true,
+                  },
+                },
+              },
+            });
 
         return {
           data: progress,
         };
-      } catch (error) {
+
+      } catch (error: any) {
         strapi.log.error(
           "CREATE LESSON PROGRESS ERROR",
           error
@@ -121,333 +249,623 @@ export default factories.createCoreController(
     },
 
     /**
-     * FIND ALL LESSON PROGRESS
+     * GET /api/lesson-progresses
+     *
+     * Admin:
+     *   All progress
+     *
+     * Content Manager:
+     *   All progress
+     *
+     * Instructor:
+     *   Progress of own courses only
      *
      * Student:
-     *   Only own progress.
-     *
-     * Admin / Content Manager:
-     *   Full access.
+     *   Own progress only
      */
     async find(ctx) {
-      const user = ctx.state.user;
+      try {
+        const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized("Authentication required");
+        if (!user) {
+          return ctx.unauthorized(
+            "Authentication required"
+          );
+        }
+
+        const currentUser =
+          await this.getCurrentUser(ctx);
+
+        if (!currentUser) {
+          return ctx.unauthorized(
+            "User not found"
+          );
+        }
+
+        const roleName =
+          currentUser.role?.name;
+
+        /**
+         * --------------------------------------
+         * ADMIN / CONTENT MANAGER
+         * --------------------------------------
+         */
+        if (
+          roleName === "Admin" ||
+          roleName === "Content Manager"
+        ) {
+          const progress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .findMany({
+                populate: {
+                  student: true,
+                  lesson: {
+                    populate: {
+                      course: {
+                        populate: {
+                          instructor: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              });
+
+          return {
+            data: progress,
+          };
+        }
+
+        /**
+         * --------------------------------------
+         * STUDENT
+         * --------------------------------------
+         */
+        if (roleName === "Student") {
+          const progress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .findMany({
+                where: {
+                  student: user.id,
+                },
+
+                populate: {
+                  lesson: {
+                    populate: {
+                      course: true,
+                    },
+                  },
+                },
+              });
+
+          return {
+            data: progress,
+          };
+        }
+
+        /**
+         * --------------------------------------
+         * INSTRUCTOR
+         * --------------------------------------
+         */
+        if (roleName === "Instructor") {
+          const progress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .findMany({
+                populate: {
+                  student: true,
+
+                  lesson: {
+                    populate: {
+                      course: {
+                        populate: {
+                          instructor: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              });
+
+          /**
+           * Only keep progress belonging
+           * to courses owned by this instructor.
+           */
+          const ownCourseProgress =
+            progress.filter(
+              (item: any) =>
+                item.lesson?.course?.instructor?.id ===
+                user.id
+            );
+
+          return {
+            data: ownCourseProgress,
+          };
+        }
+
+        return ctx.forbidden(
+          "You are not allowed to view lesson progress"
+        );
+
+      } catch (error: any) {
+        strapi.log.error(
+          "FIND LESSON PROGRESS ERROR",
+          error
+        );
+
+        return ctx.internalServerError(
+          "Failed to fetch lesson progress"
+        );
       }
-
-      const currentUser = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: {
-            id: user.id,
-          },
-          populate: ["role"],
-        });
-
-      const roleName = currentUser?.role?.name;
-
-      /**
-       * Admin and Content Manager
-       * can use the normal core find.
-       */
-      if (
-        roleName === "Admin" ||
-        roleName === "Content Manager"
-      ) {
-        return await super.find(ctx);
-      }
-
-      /**
-       * Only Student can access
-       * their own progress through this endpoint.
-       */
-      if (roleName !== "Student") {
-        return ctx.forbidden();
-      }
-
-      /**
-       * Use database query internally.
-       *
-       * This is NOT the public API filters query,
-       * so we are not depending on:
-       *
-       * ?filters[student][id][$eq]=...
-       *
-       * Student is always taken from JWT.
-       */
-      const progress = await strapi.db
-        .query("api::lesson-progress.lesson-progress")
-        .findMany({
-          where: {
-            student: user.id,
-          },
-          populate: {
-            lesson: {
-              populate: {
-                course: true,
-              },
-            },
-          },
-        });
-
-      return {
-        data: progress,
-      };
     },
 
     /**
-     * FIND ONE LESSON PROGRESS
+     * GET /api/lesson-progresses/:documentId
      *
-     * Student can only see own progress.
+     * Admin:
+     *   Any progress
+     *
+     * Content Manager:
+     *   Any progress
+     *
+     * Instructor:
+     *   Only progress from own course
+     *
+     * Student:
+     *   Only own progress
      */
     async findOne(ctx) {
-      const user = ctx.state.user;
+      try {
+        const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized("Authentication required");
-      }
+        if (!user) {
+          return ctx.unauthorized(
+            "Authentication required"
+          );
+        }
 
-      const currentUser = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: {
-            id: user.id,
-          },
-          populate: ["role"],
-        });
+        const currentUser =
+          await this.getCurrentUser(ctx);
 
-      const roleName = currentUser?.role?.name;
+        if (!currentUser) {
+          return ctx.unauthorized(
+            "User not found"
+          );
+        }
 
-      /**
-       * Admin and Content Manager
-       * can access the normal core controller.
-       */
-      if (
-        roleName === "Admin" ||
-        roleName === "Content Manager"
-      ) {
-        return await super.findOne(ctx);
-      }
+        const roleName =
+          currentUser.role?.name;
 
-      if (roleName !== "Student") {
-        return ctx.forbidden();
-      }
+        const documentId =
+          ctx.params.documentId;
 
-      /**
-       * Strapi 5 custom route parameter.
-       */
-      const documentId =
-        ctx.params.documentId || ctx.params.id;
+        if (!documentId) {
+          return ctx.badRequest(
+            "Lesson progress documentId is required"
+          );
+        }
 
-      if (!documentId) {
-        return ctx.badRequest(
-          "Lesson progress documentId is required"
-        );
-      }
+        /**
+         * Strapi 5 Document Service.
+         */
+        const progress =
+          await strapi
+            .documents(PROGRESS_UID)
+            .findOne({
+              documentId,
 
-      /**
-       * Strapi 5 Document Service.
-       */
-      const progress = await strapi
-        .documents(
-          "api::lesson-progress.lesson-progress"
-        )
-        .findOne({
-          documentId,
-          populate: {
-            student: true,
-            lesson: {
               populate: {
-                course: true,
+                student: true,
+
+                lesson: {
+                  populate: {
+                    course: {
+                      populate: {
+                        instructor: true,
+                      },
+                    },
+                  },
+                },
               },
-            },
-          },
-        });
+            });
 
-      if (!progress) {
-        return ctx.notFound(
-          "Lesson progress not found"
-        );
-      }
+        if (!progress) {
+          return ctx.notFound(
+            "Lesson progress not found"
+          );
+        }
 
-      if (!progress.student) {
-        return ctx.badRequest(
-          "Lesson progress has no student"
-        );
-      }
+        /**
+         * Admin / Content Manager
+         */
+        if (
+          roleName === "Admin" ||
+          roleName === "Content Manager"
+        ) {
+          return {
+            data: progress,
+          };
+        }
 
-      /**
-       * Ownership check.
-       */
-      if (progress.student.id !== user.id) {
+        /**
+         * Student
+         */
+        if (roleName === "Student") {
+          if (
+            progress.student?.id !==
+            user.id
+          ) {
+            return ctx.forbidden(
+              "You can only view your own lesson progress"
+            );
+          }
+
+          return {
+            data: progress,
+          };
+        }
+
+        /**
+         * Instructor
+         */
+        if (roleName === "Instructor") {
+          const instructorId =
+            progress.lesson
+              ?.course
+              ?.instructor
+              ?.id;
+
+          if (instructorId !== user.id) {
+            return ctx.forbidden(
+              "You can only view progress from your own courses"
+            );
+          }
+
+          return {
+            data: progress,
+          };
+        }
+
         return ctx.forbidden(
-          "You can only view your own lesson progress"
+          "You are not allowed to view this lesson progress"
+        );
+
+      } catch (error: any) {
+        strapi.log.error(
+          "FIND ONE LESSON PROGRESS ERROR",
+          error
+        );
+
+        return ctx.internalServerError(
+          "Failed to fetch lesson progress"
         );
       }
-
-      return {
-        data: progress,
-      };
     },
 
     /**
-     * GET COURSE PROGRESS
-     *
-     * GET:
+     * GET
      * /api/lesson-progresses/course/:courseDocumentId
      *
-     * Student must be enrolled in the course.
+     * Student:
+     *   Own progress after enrollment check
      *
-     * Returns:
-     * - totalLessons
-     * - completedLessons
-     * - percentage
-     * - progress
+     * Instructor:
+     *   All students' progress
+     *   from own course
+     *
+     * Admin / Content Manager:
+     *   All students' progress
+     *   from requested course
      */
     async getCourseProgress(ctx) {
-      const user = ctx.state.user;
+      try {
+        const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized("Authentication required");
-      }
+        if (!user) {
+          return ctx.unauthorized(
+            "Authentication required"
+          );
+        }
 
-      const currentUser = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: {
-            id: user.id,
-          },
-          populate: ["role"],
-        });
+        const currentUser =
+          await this.getCurrentUser(ctx);
 
-      const roleName = currentUser?.role?.name;
+        if (!currentUser) {
+          return ctx.unauthorized(
+            "User not found"
+          );
+        }
 
-      if (roleName !== "Student") {
-        return ctx.forbidden(
-          "Only students can view course progress"
-        );
-      }
+        const roleName =
+          currentUser.role?.name;
 
-      /**
-       * IMPORTANT:
-       * This is Course documentId.
-       */
-      const courseDocumentId =
-        ctx.params.courseDocumentId ||
-        ctx.params.courseId;
+        const courseDocumentId =
+          ctx.params.courseDocumentId;
 
-      if (!courseDocumentId) {
-        return ctx.badRequest(
-          "Course documentId is required"
-        );
-      }
+        if (!courseDocumentId) {
+          return ctx.badRequest(
+            "Course documentId is required"
+          );
+        }
 
-      /**
-       * Strapi 5 Document Service.
-       */
-      const course = await strapi
-        .documents("api::course.course")
-        .findOne({
-          documentId: courseDocumentId,
-        });
-
-      if (!course) {
-        return ctx.notFound("Course not found");
-      }
-
-      /**
-       * Check enrollment.
-       */
-      const enrollment = await strapi.db
-        .query("api::enrollment.enrollment")
-        .findOne({
-          where: {
-            student: user.id,
-            course: course.id,
-          },
-        });
-
-      if (!enrollment) {
-        return ctx.forbidden(
-          "You are not enrolled in this course"
-        );
-      }
-
-      /**
-       * Get all lessons of this course.
-       *
-       * Strapi 5 Document Service.
-       */
-      const lessons = await strapi
-        .documents("api::lesson.lesson")
-        .findMany({
-          filters: {
-            course: {
+        /**
+         * Get course by documentId.
+         */
+        const course =
+          await strapi
+            .documents(COURSE_UID)
+            .findOne({
               documentId: courseDocumentId,
-            },
-          },
-        });
 
-      /**
-       * Get current student's progress.
-       *
-       * We populate lesson -> course so that
-       * we can safely identify progress belonging
-       * to this particular course.
-       */
-      const allProgress = await strapi.db
-        .query("api::lesson-progress.lesson-progress")
-        .findMany({
-          where: {
-            student: user.id,
-          },
-          populate: {
-            lesson: {
               populate: {
-                course: true,
+                instructor: true,
               },
+            });
+
+        if (!course) {
+          return ctx.notFound(
+            "Course not found"
+          );
+        }
+
+        /**
+         * Get all lessons belonging
+         * to this course.
+         */
+        const lessons =
+          await strapi
+            .documents(LESSON_UID)
+            .findMany({
+              filters: {
+                course: {
+                  documentId: {
+                    $eq: courseDocumentId,
+                  },
+                },
+              },
+            });
+
+        const totalLessons =
+          lessons.length;
+
+        /**
+         * --------------------------------------
+         * STUDENT
+         * --------------------------------------
+         */
+        if (roleName === "Student") {
+          /**
+           * Verify enrollment.
+           */
+          const enrollment =
+            await strapi.db
+              .query(ENROLLMENT_UID)
+              .findOne({
+                where: {
+                  student: user.id,
+                  course: course.id,
+                },
+              });
+
+          if (!enrollment) {
+            return ctx.forbidden(
+              "You are not enrolled in this course"
+            );
+          }
+
+          /**
+           * Get only current student's
+           * progress.
+           */
+          const studentProgress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .findMany({
+                where: {
+                  student: user.id,
+                },
+
+                populate: {
+                  lesson: {
+                    populate: {
+                      course: true,
+                    },
+                  },
+                },
+              });
+
+          /**
+           * Keep only progress
+           * from requested course.
+           */
+          const courseProgress =
+            studentProgress.filter(
+              (item: any) =>
+                item.lesson?.course?.id ===
+                course.id
+            );
+
+          const completedLessons =
+            courseProgress.filter(
+              (item: any) =>
+                item.completed === true
+            ).length;
+
+          const percentage =
+            totalLessons > 0
+              ? Math.round(
+                  (completedLessons /
+                    totalLessons) *
+                    100
+                )
+              : 0;
+
+          return {
+            data: {
+              course,
+              totalLessons,
+              completedLessons,
+              percentage,
+              progress: courseProgress,
             },
-          },
-        });
+          };
+        }
 
-      /**
-       * Only progress belonging to
-       * the requested course.
-       */
-      const courseProgress = allProgress.filter(
-        (item: any) =>
-          item.lesson?.course?.id === course.id
-      );
+        /**
+         * --------------------------------------
+         * INSTRUCTOR
+         * --------------------------------------
+         */
+        if (roleName === "Instructor") {
+          const instructorId =
+            course.instructor?.id;
 
-      /**
-       * Count completed lessons.
-       */
-      const completedLessons = courseProgress.filter(
-        (item: any) => item.completed === true
-      ).length;
+          if (
+            instructorId !== user.id
+          ) {
+            return ctx.forbidden(
+              "You can only view progress of your own courses"
+            );
+          }
+        }
 
-      const totalLessons = lessons.length;
+        /**
+         * --------------------------------------
+         * ADMIN / CONTENT MANAGER / INSTRUCTOR
+         * --------------------------------------
+         */
+        if (
+          roleName === "Admin" ||
+          roleName === "Content Manager" ||
+          roleName === "Instructor"
+        ) {
+          /**
+           * Get all progress records.
+           */
+          const allProgress =
+            await strapi.db
+              .query(PROGRESS_UID)
+              .findMany({
+                populate: {
+                  student: true,
 
-      /**
-       * Calculate completion percentage.
-       */
-      const percentage =
-        totalLessons > 0
-          ? Math.round(
-              (completedLessons / totalLessons) * 100
-            )
-          : 0;
+                  lesson: {
+                    populate: {
+                      course: true,
+                    },
+                  },
+                },
+              });
 
-      return {
-        data: {
-          course,
-          totalLessons,
-          completedLessons,
-          percentage,
-          progress: courseProgress,
-        },
-      };
+          /**
+           * Keep only progress from
+           * requested course.
+           */
+          const courseProgress =
+            allProgress.filter(
+              (item: any) =>
+                item.lesson?.course?.id ===
+                course.id
+            );
+
+          /**
+           * Group progress by student.
+           */
+          const studentMap =
+            new Map<number, any>();
+
+          for (
+            const item of courseProgress
+          ) {
+            const student =
+              item.student;
+
+            if (!student) {
+              continue;
+            }
+
+            if (
+              !studentMap.has(student.id)
+            ) {
+              studentMap.set(
+                student.id,
+                {
+                  student,
+                  completedLessons: 0,
+                  progress: [],
+                }
+              );
+            }
+
+            const studentData =
+              studentMap.get(student.id);
+
+            studentData.progress.push(item);
+
+            if (
+              item.completed === true
+            ) {
+              studentData.completedLessons += 1;
+            }
+          }
+
+          /**
+           * Build final student statistics.
+           */
+          const students =
+            Array.from(
+              studentMap.values()
+            ).map(
+              (studentData) => ({
+                student:
+                  studentData.student,
+
+                totalLessons,
+
+                completedLessons:
+                  studentData.completedLessons,
+
+                percentage:
+                  totalLessons > 0
+                    ? Math.round(
+                        (studentData.completedLessons /
+                          totalLessons) *
+                          100
+                      )
+                    : 0,
+
+                progress:
+                  studentData.progress,
+              })
+            );
+
+          return {
+            data: {
+              course,
+              totalLessons,
+              students,
+            },
+          };
+        }
+
+        return ctx.forbidden(
+          "You are not allowed to view course progress"
+        );
+
+      } catch (error: any) {
+        strapi.log.error(
+          "GET COURSE PROGRESS ERROR",
+          error
+        );
+
+        return ctx.internalServerError(
+          "Failed to calculate course progress"
+        );
+      }
     },
+
   })
 );

@@ -17,5 +17,23 @@ export default {
         policies: [],
       },
     },
+
+    {
+      method: "GET",
+      path: "/lesson-progresses",
+      handler: "lesson-progress.find",
+      config: {
+        policies: [],
+      },
+    },
+
+    {
+      method: "GET",
+      path: "/lesson-progresses/:documentId",
+      handler: "lesson-progress.findOne",
+      config: {
+        policies: [],
+      },
+    },
   ],
 };
