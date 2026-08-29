@@ -10,7 +10,7 @@ export default {
     },
     {
       method: "GET",
-      path: "/courses/:id",
+      path: "/courses/:documentId",
       handler: "course.findOne",
       config: {
         policies: [],
@@ -26,18 +26,18 @@ export default {
     },
     {
       method: "PUT",
-      path: "/courses/:id",
+      path: "/courses/:documentId",
       handler: "course.update",
       config: {
-        policies: ["global::is-owner"],
+        policies: [],
       },
     },
     {
       method: "DELETE",
-      path: "/courses/:id",
+      path: "/courses/:documentId",
       handler: "course.delete",
       config: {
-        policies: ["global::is-owner"],
+        policies: [],
       },
     },
   ],
