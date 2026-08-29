@@ -1,7 +1,28 @@
-/**
- * quiz-result router
- */
-
-import { factories } from '@strapi/strapi';
-
-export default factories.createCoreRouter('api::quiz-result.quiz-result');
+export default {
+  routes: [
+    {
+      method: "GET",
+      path: "/quiz-results",
+      handler: "quiz-result.find",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "GET",
+      path: "/quiz-results/:documentId",
+      handler: "quiz-result.findOne",
+      config: {
+        policies: [],
+      },
+    },
+    {
+      method: "POST",
+      path: "/quiz-results",
+      handler: "quiz-result.create",
+      config: {
+        policies: [],
+      },
+    },
+  ],
+};
