@@ -544,7 +544,92 @@ export default factories.createCoreController(
         );
       }
     },
+async delete(ctx) {
+  try {
+    const user = ctx.state.user;
 
+    if (!user) {
+      return ctx.unauthorized(
+        "Authentication required"
+      );
+    }
+
+    const currentUser =
+      await this.getCurrentUser(ctx);
+
+    if (!currentUser) {
+      return ctx.unauthorized(
+        "User not found"
+      );
+    }
+
+    const roleName =
+      currentUser.role?.name;
+
+    if (roleName !== "Student") {
+      return ctx.forbidden(
+        "Only students can remove lesson progress"
+      );
+    }
+
+    const documentId =
+      ctx.params.documentId;
+
+    if (!documentId) {
+      return ctx.badRequest(
+        "Lesson progress documentId is required"
+      );
+    }
+
+    const progress =
+      await strapi
+        .documents(PROGRESS_UID)
+        .findOne({
+          documentId,
+          populate: {
+            student: true,
+            lesson: {
+              populate: {
+                course: true,
+              },
+            },
+          },
+        });
+
+    if (!progress) {
+      return ctx.notFound(
+        "Lesson progress not found"
+      );
+    }
+
+    if (
+      progress.student?.id !== user.id
+    ) {
+      return ctx.forbidden(
+        "You can only remove your own lesson progress"
+      );
+    }
+
+    await strapi
+      .documents(PROGRESS_UID)
+      .delete({
+        documentId,
+      });
+
+    return {
+      data: null,
+    };
+  } catch (error: any) {
+    strapi.log.error(
+      "DELETE LESSON PROGRESS ERROR",
+      error
+    );
+
+    return ctx.internalServerError(
+      "Failed to remove lesson progress"
+    );
+  }
+},
     /**
      * GET
      * /api/lesson-progresses/course/:courseDocumentId

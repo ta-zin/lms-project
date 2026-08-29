@@ -6,14 +6,14 @@ interface CourseDetailsPageProps {
   }>;
 }
 
-export default async function CourseDetailsPage(
-  props: CourseDetailsPageProps
-) {
-  const params = await props.params;
+export default async function CourseDetailsPage({
+  params,
+}: CourseDetailsPageProps) {
+  const { documentId } = await params;
 
   return (
     <CourseDetailsClient
-      documentId={params.documentId}
+      documentId={documentId}
     />
   );
 }

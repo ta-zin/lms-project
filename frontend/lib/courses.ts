@@ -25,6 +25,7 @@ export interface Lesson {
   title: string;
   content?: string | null;
   videoUrl?: string | null;
+  publishedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   course?: Course | null;
@@ -43,6 +44,26 @@ export interface Enrollment {
   createdAt?: string;
 }
 
+export interface LessonProgress {
+  id: number;
+  documentId: string;
+  completed: boolean;
+  student?: {
+    id: number;
+    documentId?: string;
+    username?: string;
+  } | null;
+  lesson?: Lesson | null;
+}
+
+export interface CourseProgress {
+  course?: Course | null;
+  totalLessons: number;
+  completedLessons: number;
+  percentage: number;
+  progress: LessonProgress[];
+}
+
 interface StrapiListResponse<T> {
   data: T[];
   meta?: unknown;
@@ -51,6 +72,10 @@ interface StrapiListResponse<T> {
 interface StrapiSingleResponse<T> {
   data: T | null;
   meta?: unknown;
+}
+
+interface CourseProgressResponse {
+  data: CourseProgress;
 }
 
 function requireToken(): string {
@@ -71,7 +96,7 @@ export async function getCourses(): Promise<Course[]> {
 
   const response =
     await apiFetch<StrapiListResponse<Course>>(
-      "/courses",
+      "/courses?populate=instructor",
       {
         method: "GET",
         token,
@@ -141,7 +166,7 @@ export async function getMyEnrollments(): Promise<
 
   const response =
     await apiFetch<StrapiListResponse<Enrollment>>(
-      "/enrollments",
+      "/enrollments?populate=course",
       {
         method: "GET",
         token,
@@ -151,21 +176,22 @@ export async function getMyEnrollments(): Promise<
   return response.data ?? [];
 }
 
-export async function getCourseLessons(
-  courseDocumentId: string
-): Promise<Lesson[]> {
+/**
+ * Student lesson access is already restricted
+ * by the Strapi backend to enrolled courses.
+ *
+ * We populate the course relation because the
+ * frontend needs to identify the course that each
+ * lesson belongs to.
+ */
+export async function getEnrolledLessons(): Promise<
+  Lesson[]
+> {
   const token = requireToken();
-
-  const params = new URLSearchParams();
-
-  params.set(
-    "filters[course][documentId][$eq]",
-    courseDocumentId
-  );
 
   const response =
     await apiFetch<StrapiListResponse<Lesson>>(
-      `/lessons?${params.toString()}`,
+      "/lessons?populate=course&pagination[pageSize]=100",
       {
         method: "GET",
         token,
@@ -173,4 +199,120 @@ export async function getCourseLessons(
     );
 
   return response.data ?? [];
+}
+
+export async function getLesson(
+  documentId: string
+): Promise<Lesson> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Lesson>>(
+      `/lessons/${encodeURIComponent(documentId)}`,
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Lesson not found",
+      404
+    );
+  }
+
+  return response.data;
+}
+
+export async function getMyLessonProgress(): Promise<
+  LessonProgress[]
+> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<
+      StrapiListResponse<LessonProgress>
+    >(
+      "/lesson-progresses",
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+  return response.data ?? [];
+}
+
+export async function getCourseProgress(
+  courseDocumentId: string
+): Promise<CourseProgress> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<CourseProgressResponse>(
+      `/lesson-progresses/course/${encodeURIComponent(
+        courseDocumentId
+      )}`,
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Course progress not found",
+      404
+    );
+  }
+
+  return response.data;
+}
+
+export async function completeLesson(
+  lessonDocumentId: string
+): Promise<LessonProgress> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<
+      StrapiSingleResponse<LessonProgress>
+    >(
+      "/lesson-progresses",
+      {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          data: {
+            lesson: lessonDocumentId,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to complete lesson",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function uncompleteLesson(
+  progressDocumentId: string
+): Promise<void> {
+  const token = requireToken();
+
+  await apiFetch(
+    `/lesson-progresses/${encodeURIComponent(
+      progressDocumentId
+    )}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
 }

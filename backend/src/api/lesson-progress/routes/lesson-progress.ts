@@ -35,5 +35,13 @@ export default {
         policies: [],
       },
     },
+    {
+  method: "DELETE",
+  path: "/lesson-progresses/:documentId",
+  handler: "lesson-progress.delete",
+  config: {
+    policies: [],
+  },
+},
   ],
 };
