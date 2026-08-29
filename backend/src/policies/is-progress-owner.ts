@@ -1,23 +1,29 @@
 export default async (policyContext: any) => {
   const user = policyContext.state.user;
 
-  if (!user) return false;
+  if (!user) {
+    return false;
+  }
 
-  if (user.role?.type === "admin") return true;
+  const strapi = policyContext.strapi;
 
-  if (user.role?.name !== "Student") return false;
+  const role = await strapi
+    .query("plugin::users-permissions.user")
+    .findOne({
+      where: { id: user.id },
+      populate: ["role"],
+    });
 
-  const { id } = policyContext.params;
+  if (!role) {
+    return false;
+  }
 
-  if (!id) return false;
+  const roleName = role.role?.name;
 
-  const progress: any = await strapi.entityService.findOne(
-    "api::lesson-progress.lesson-progress",
-    id,
-    {
-      populate: ["student"],
-    }
+  return (
+    roleName === "Student" ||
+    roleName === "Instructor" ||
+    roleName === "Admin" ||
+    roleName === "Content Manager"
   );
-
-  return progress?.student?.id === user.id;
 };

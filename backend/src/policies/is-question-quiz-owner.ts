@@ -1,3 +1,4 @@
+
 export default async (policyContext: any) => {
   const user = policyContext.state.user;
 
@@ -12,24 +13,29 @@ export default async (policyContext: any) => {
 
   if (user.role?.name !== "Instructor") return false;
 
-  const { id } = policyContext.params;
-  if (!id) return false;
+  const { documentId } = policyContext.params;
 
-  const question: any = await strapi.entityService.findOne(
-    "api::question.question",
-    id,
-    {
+  if (!documentId) return false;
+
+  const question: any = await strapi
+    .documents("api::question.question")
+    .findOne({
+      documentId,
       populate: {
         quiz: {
           populate: {
             course: {
-              populate: ["instructor"],
+              populate: {
+                instructor: true,
+              },
             },
           },
         },
       },
-    }
-  );
+    });
 
-  return question?.quiz?.course?.instructor?.id === user.id;
+  return (
+    question?.quiz?.course?.instructor?.documentId ===
+    user.documentId
+  );
 };

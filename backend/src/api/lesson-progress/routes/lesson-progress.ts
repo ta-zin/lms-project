@@ -1,35 +1,20 @@
 export default {
   routes: [
     {
-      method: "GET",
-    path: "/lesson-progresses/course/:courseId",
-    handler: "lesson-progress.getCourseProgress",
-    config: {
-        policies: [],
-      },
-    },
-    {
-      method: "GET",
-      path: "/lesson-progresses/:id",
-      handler: "lesson-progress.findOne",
-      config: {
-        policies: ["global::is-progress-owner"],
-      },
-    },
-    {
       method: "POST",
       path: "/lesson-progresses",
       handler: "lesson-progress.create",
       config: {
-        policies: ["global::is-student-enrollment"],
+        policies: [],
       },
     },
+
     {
-      method: "PUT",
-      path: "/lesson-progresses/:id",
-      handler: "lesson-progress.update",
+      method: "GET",
+      path: "/lesson-progresses/course/:courseDocumentId",
+      handler: "lesson-progress.getCourseProgress",
       config: {
-        policies: ["global::is-progress-owner"],
+        policies: [],
       },
     },
   ],

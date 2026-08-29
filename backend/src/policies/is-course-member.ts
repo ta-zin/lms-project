@@ -1,3 +1,4 @@
+
 export default async (policyContext: any) => {
   const user = policyContext.state.user;
 
@@ -11,12 +12,16 @@ export default async (policyContext: any) => {
 
   if (!courseId) return false;
 
-  const enrollment: any = await strapi.db
-    .query("api::enrollment.enrollment")
-    .findOne({
-      where: {
-        student: user.id,
-        course: courseId,
+  const enrollment = await strapi
+    .documents("api::enrollment.enrollment")
+    .findFirst({
+      filters: {
+        student: {
+          documentId: user.documentId,
+        },
+        course: {
+          documentId: courseId,
+        },
       },
     });
 

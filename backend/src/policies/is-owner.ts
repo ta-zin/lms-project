@@ -1,3 +1,4 @@
+
 export default async (policyContext: any) => {
   const user = policyContext.state.user;
 
@@ -9,19 +10,20 @@ export default async (policyContext: any) => {
     return true;
   }
 
-  const { id } = policyContext.params;
+  const { documentId } = policyContext.params;
 
-  if (!id) {
+  if (!documentId) {
     return false;
   }
 
-  const course: any = await strapi.entityService.findOne(
-    "api::course.course",
-    id,
-    {
-      populate: ["instructor"],
-    }
-  );
+  const course: any = await strapi
+    .documents("api::course.course")
+    .findOne({
+      documentId,
+      populate: {
+        instructor: true,
+      },
+    });
 
-  return course?.instructor?.id === user.id;
+  return course?.instructor?.documentId === user.documentId;
 };
