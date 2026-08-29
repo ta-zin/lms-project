@@ -30,7 +30,12 @@ export default function Home() {
               >
                 Explore Courses
               </a>
-
+              <a
+  href="/blog"
+  className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+>
+  Read Blogs
+</a>
               <a
                 href="/login"
                 className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
