@@ -10,7 +10,7 @@ export default {
     },
     {
       method: "GET",
-      path: "/lessons/:id",
+      path: "/lessons/:documentId",
       handler: "lesson.findOne",
       config: {
         policies: [],
@@ -21,23 +21,23 @@ export default {
       path: "/lessons",
       handler: "lesson.create",
       config: {
-        policies: ["global::is-instructor-course-owner-from-body"],
+        policies: [],
       },
     },
     {
       method: "PUT",
-      path: "/lessons/:id",
+      path: "/lessons/:documentId",
       handler: "lesson.update",
       config: {
-        policies: ["global::is-instructor-course-owner"],
+        policies: [],
       },
     },
     {
       method: "DELETE",
-      path: "/lessons/:id",
+      path: "/lessons/:documentId",
       handler: "lesson.delete",
       config: {
-        policies: ["global::is-instructor-course-owner"],
+        policies: [],
       },
     },
   ],
