@@ -4,7 +4,11 @@ export class ApiError extends Error {
   status: number;
   details?: unknown;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    details?: unknown
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -16,30 +20,58 @@ type ApiFetchOptions = RequestInit & {
   token?: string | null;
 };
 
+function getApiUrl(): string {
+  if (!API_URL) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not configured. Add it to your .env.local file."
+    );
+  }
+
+  return API_URL.replace(/\/$/, "");
+}
+
 export async function apiFetch<T = unknown>(
   endpoint: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  if (!API_URL) {
-    throw new Error("NEXT_PUBLIC_API_URL is not configured");
-  }
-
-  const { token, headers, ...requestOptions } = options;
+  const {
+    token,
+    headers,
+    ...requestOptions
+  } = options;
 
   const requestHeaders = new Headers(headers);
 
-  if (!requestHeaders.has("Content-Type") && requestOptions.body) {
-    requestHeaders.set("Content-Type", "application/json");
+  if (
+    !requestHeaders.has("Content-Type") &&
+    requestOptions.body
+  ) {
+    requestHeaders.set(
+      "Content-Type",
+      "application/json"
+    );
   }
+
+  requestHeaders.set("Accept", "application/json");
 
   if (token) {
-    requestHeaders.set("Authorization", `Bearer ${token}`);
+    requestHeaders.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...requestOptions,
-    headers: requestHeaders,
-  });
+  const cleanEndpoint = endpoint.startsWith("/")
+    ? endpoint
+    : `/${endpoint}`;
+
+  const response = await fetch(
+    `${getApiUrl()}${cleanEndpoint}`,
+    {
+      ...requestOptions,
+      headers: requestHeaders,
+    }
+  );
 
   let responseData: unknown = null;
 
@@ -50,19 +82,27 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    const errorMessage =
+    let message = `API Error: ${response.status}`;
+
+    if (
       typeof responseData === "object" &&
       responseData !== null &&
-      "error" in responseData &&
-      typeof responseData.error === "object" &&
-      responseData.error !== null &&
-      "message" in responseData.error &&
-      typeof responseData.error.message === "string"
-        ? responseData.error.message
-        : `API Error: ${response.status}`;
+      "error" in responseData
+    ) {
+      const error = responseData.error;
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof error.message === "string"
+      ) {
+        message = error.message;
+      }
+    }
 
     throw new ApiError(
-      errorMessage,
+      message,
       response.status,
       responseData
     );
