@@ -182,3 +182,197 @@ export async function getMyQuizResults(): Promise<
 
   return response.data ?? [];
 }
+
+
+
+export interface CreateQuizInput {
+  title: string;
+  course: string;
+}
+
+export interface UpdateQuizInput {
+  title: string;
+}
+
+export interface CreateQuestionInput {
+  question: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctAnswer: string;
+  quiz: string;
+}
+
+export interface UpdateQuestionInput {
+  question: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctAnswer: string;
+}
+
+export async function createQuiz(
+  input: CreateQuizInput
+): Promise<Quiz> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Quiz>>(
+      "/quizzes",
+      {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+            course: input.course,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to create quiz",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function updateQuiz(
+  documentId: string,
+  input: UpdateQuizInput
+): Promise<Quiz> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Quiz>>(
+      `/quizzes/${encodeURIComponent(documentId)}`,
+      {
+        method: "PUT",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to update quiz",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function deleteQuiz(
+  documentId: string
+): Promise<void> {
+  const token = requireToken();
+
+  await apiFetch(
+    `/quizzes/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}
+
+export async function createQuestion(
+  input: CreateQuestionInput
+): Promise<Question> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<
+      StrapiSingleResponse<Question>
+    >(
+      "/questions",
+      {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          data: {
+            question: input.question,
+            optionA: input.optionA,
+            optionB: input.optionB,
+            optionC: input.optionC,
+            optionD: input.optionD,
+            correctAnswer:
+              input.correctAnswer,
+            quiz: input.quiz,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to create question",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function updateQuestion(
+  documentId: string,
+  input: UpdateQuestionInput
+): Promise<Question> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<
+      StrapiSingleResponse<Question>
+    >(
+      `/questions/${encodeURIComponent(documentId)}`,
+      {
+        method: "PUT",
+        token,
+        body: JSON.stringify({
+          data: {
+            question: input.question,
+            optionA: input.optionA,
+            optionB: input.optionB,
+            optionC: input.optionC,
+            optionD: input.optionD,
+            correctAnswer:
+              input.correctAnswer,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to update question",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function deleteQuestion(
+  documentId: string
+): Promise<void> {
+  const token = requireToken();
+
+  await apiFetch(
+    `/questions/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}

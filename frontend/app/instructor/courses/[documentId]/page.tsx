@@ -319,8 +319,16 @@ export default function InstructorCourseLessonsPage() {
       }
       description="Create and manage lessons for your course."
     >
+
+
+    
+        
+
+
+
       <div className="space-y-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
           <Link
             href="/instructor/courses"
             className="inline-flex w-fit rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -336,7 +344,16 @@ export default function InstructorCourseLessonsPage() {
                 : "lessons"}
             </div>
           )}
+
+          
         </div>
+<Link
+  href={`/instructor/courses/${documentId}/quizzes`}
+  className="inline-flex rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+>
+  Manage Quizzes
+</Link>
+        
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -353,6 +370,7 @@ export default function InstructorCourseLessonsPage() {
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <p className="text-sm text-slate-500">
+                
               Loading course...
             </p>
           </div>

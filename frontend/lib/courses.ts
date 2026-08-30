@@ -104,19 +104,7 @@ type CourseProgressResponse =
     };
 
 
-interface InstructorCourseProgress {
-  course?: Course | null;
-  totalLessons: number;
-  students: InstructorStudentProgress[];
-}
 
-type CourseProgressResponse =
-  | {
-      data: CourseProgress;
-    }
-  | {
-      data: InstructorCourseProgress;
-    };
 function requireToken(): string {
   const token = getToken();
 
