@@ -1,3 +1,4 @@
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export class ApiError extends Error {
@@ -112,4 +113,4 @@ export async function apiFetch<T = unknown>(
   }
 
   return responseData as T;
-}
+}  

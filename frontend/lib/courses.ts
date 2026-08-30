@@ -74,10 +74,49 @@ interface StrapiSingleResponse<T> {
   meta?: unknown;
 }
 
-interface CourseProgressResponse {
-  data: CourseProgress;
+
+interface InstructorStudentProgress {
+  student?: {
+    id: number;
+    documentId?: string;
+    username?: string;
+    email?: string;
+  } | null;
+
+  totalLessons: number;
+  completedLessons: number;
+  percentage: number;
+  progress: LessonProgress[];
 }
 
+interface InstructorCourseProgress {
+  course?: Course | null;
+  totalLessons: number;
+  students: InstructorStudentProgress[];
+}
+
+type CourseProgressResponse =
+  | {
+      data: CourseProgress;
+    }
+  | {
+      data: InstructorCourseProgress;
+    };
+
+
+interface InstructorCourseProgress {
+  course?: Course | null;
+  totalLessons: number;
+  students: InstructorStudentProgress[];
+}
+
+type CourseProgressResponse =
+  | {
+      data: CourseProgress;
+    }
+  | {
+      data: InstructorCourseProgress;
+    };
 function requireToken(): string {
   const token = getToken();
 
@@ -244,9 +283,12 @@ export async function getMyLessonProgress(): Promise<
   return response.data ?? [];
 }
 
+
 export async function getCourseProgress(
   courseDocumentId: string
-): Promise<CourseProgress> {
+): Promise<
+  CourseProgress | InstructorCourseProgress
+> {
   const token = requireToken();
 
   const response =
@@ -269,6 +311,8 @@ export async function getCourseProgress(
 
   return response.data;
 }
+
+
 
 export async function completeLesson(
   lessonDocumentId: string
@@ -310,6 +354,187 @@ export async function uncompleteLesson(
     `/lesson-progresses/${encodeURIComponent(
       progressDocumentId
     )}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}
+
+export interface CreateCourseInput {
+  title: string;
+  description: string;
+}
+
+export interface UpdateCourseInput {
+  title: string;
+  description: string;
+}
+
+export async function createCourse(
+  input: CreateCourseInput
+): Promise<Course> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Course>>(
+      "/courses",
+      {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+            description: input.description,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to create course",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function updateCourse(
+  documentId: string,
+  input: UpdateCourseInput
+): Promise<Course> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Course>>(
+      `/courses/${encodeURIComponent(documentId)}`,
+      {
+        method: "PUT",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+            description: input.description,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to update course",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function deleteCourse(
+  documentId: string
+): Promise<void> {
+  const token = requireToken();
+
+  await apiFetch(
+    `/courses/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}
+
+
+export interface CreateLessonInput {
+  title: string;
+  content?: string;
+  videoUrl?: string;
+  course: string;
+}
+
+export interface UpdateLessonInput {
+  title: string;
+  content?: string;
+  videoUrl?: string;
+  course?: string;
+}
+
+export async function createLesson(
+  input: CreateLessonInput
+): Promise<Lesson> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Lesson>>(
+      "/lessons",
+      {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+            content: input.content || null,
+            videoUrl: input.videoUrl || null,
+            course: input.course,
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to create lesson",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function updateLesson(
+  documentId: string,
+  input: UpdateLessonInput
+): Promise<Lesson> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<Lesson>>(
+      `/lessons/${encodeURIComponent(documentId)}`,
+      {
+        method: "PUT",
+        token,
+        body: JSON.stringify({
+          data: {
+            title: input.title,
+            content: input.content || null,
+            videoUrl: input.videoUrl || null,
+            ...(input.course
+              ? { course: input.course }
+              : {}),
+          },
+        }),
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Failed to update lesson",
+      500
+    );
+  }
+
+  return response.data;
+}
+
+export async function deleteLesson(
+  documentId: string
+): Promise<void> {
+  const token = requireToken();
+
+  await apiFetch(
+    `/lessons/${encodeURIComponent(documentId)}`,
     {
       method: "DELETE",
       token,
