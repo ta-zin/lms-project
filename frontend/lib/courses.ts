@@ -95,13 +95,7 @@ interface InstructorCourseProgress {
   students: InstructorStudentProgress[];
 }
 
-type CourseProgressResponse =
-  | {
-      data: CourseProgress;
-    }
-  | {
-      data: InstructorCourseProgress;
-    };
+
 
 
 
@@ -116,6 +110,32 @@ function requireToken(): string {
   }
 
   return token;
+}
+
+export async function getInstructorCourseProgress(
+  courseDocumentId: string
+): Promise<InstructorCourseProgress> {
+  const token = requireToken();
+
+  const response =
+    await apiFetch<StrapiSingleResponse<InstructorCourseProgress>>(
+      `/lesson-progresses/course/${encodeURIComponent(
+        courseDocumentId
+      )}`,
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+  if (!response.data) {
+    throw new ApiError(
+      "Instructor course progress not found",
+      404
+    );
+  }
+
+  return response.data;
 }
 
 export async function getCourses(): Promise<Course[]> {
@@ -274,13 +294,13 @@ export async function getMyLessonProgress(): Promise<
 
 export async function getCourseProgress(
   courseDocumentId: string
-): Promise<
-  CourseProgress | InstructorCourseProgress
-> {
+): Promise<CourseProgress> {
   const token = requireToken();
 
   const response =
-    await apiFetch<CourseProgressResponse>(
+    await apiFetch<{
+      data: CourseProgress;
+    }>(
       `/lesson-progresses/course/${encodeURIComponent(
         courseDocumentId
       )}`,
@@ -299,7 +319,6 @@ export async function getCourseProgress(
 
   return response.data;
 }
-
 
 
 export async function completeLesson(

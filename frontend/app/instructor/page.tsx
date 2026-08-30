@@ -11,7 +11,7 @@ import {
   Course,
   getCourses,
   getEnrolledLessons,
-  getCourseProgress,
+  getInstructorCourseProgress,
   Lesson,
 } from "@/lib/courses";
 
@@ -93,7 +93,7 @@ export default function InstructorDashboard() {
             courseData.map(async (course) => {
               try {
                 const result =
-                  await getCourseProgress(
+                  await getInstructorCourseProgress(
                     course.documentId
                   );
 
@@ -109,28 +109,20 @@ export default function InstructorDashboard() {
         let progressCount = 0;
 
         for (const result of progressResults) {
-          if (!result) {
-            continue;
-          }
+  if (!result) {
+    continue;
+  }
 
-          /*
-           * Instructor response contains students[]
-           * rather than one student's progress.
-           */
-          const students =
-            "students" in result
-              ? result.students
-              : [];
+  const students = result.students;
 
-          totalStudents += students.length;
+  totalStudents += students.length;
 
-          for (const student of students) {
-            totalProgress +=
-              student.percentage ?? 0;
+  for (const student of students) {
+    totalProgress += student.percentage ?? 0;
 
-            progressCount += 1;
-          }
-        }
+    progressCount += 1;
+  }
+}
 
         setProgressSummary({
           totalLessons: ownLessons.length,
