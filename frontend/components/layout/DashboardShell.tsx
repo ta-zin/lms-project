@@ -36,24 +36,28 @@ function getNavigation(
 ): NavigationItem[] {
   switch (role) {
     case "Student":
-      return [
-        {
-          label: "Dashboard",
-          href: "/dashboard",
-        },
-        {
-          label: "Courses",
-          href: "/courses",
-        },
-        {
-          label: "My Courses",
-          href: "/my-courses",
-        },
-        {
-          label: "Blog",
-          href: "/blog",
-        },
-      ];
+  return [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+    },
+    {
+      label: "Courses",
+      href: "/courses",
+    },
+    {
+      label: "My Courses",
+      href: "/my-courses",
+    },
+    {
+      label: "Quizzes",
+      href: "/quizzes",
+    },
+    {
+      label: "Blog",
+      href: "/blog",
+    },
+  ];
 
     case "Instructor":
       return [

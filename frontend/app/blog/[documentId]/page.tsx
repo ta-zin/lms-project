@@ -9,7 +9,8 @@ interface BlogPostPageProps {
 export default async function BlogPostPage({
   params,
 }: BlogPostPageProps) {
-  const { documentId } = await params;
+  const { documentId } =
+    await params;
 
   return (
     <BlogPostClient

@@ -42,16 +42,23 @@ export default function CourseDetailsClient({
   const [loadingProgress, setLoadingProgress] =
     useState(true);
 
-  const [error, setError] =
+  const [courseError, setCourseError] =
     useState("");
 
   const [progressError, setProgressError] =
     useState("");
 
+  /*
+   * -----------------------------------------
+   * LOAD COURSE + LESSONS
+   * -----------------------------------------
+   *
+   * Quiz API is intentionally NOT called here.
+   */
   useEffect(() => {
     async function loadCourse() {
       setLoadingCourse(true);
-      setError("");
+      setCourseError("");
 
       try {
         const courseData =
@@ -59,44 +66,41 @@ export default function CourseDetailsClient({
 
         setCourse(courseData);
 
-        /**
-         * Load lessons separately.
-         *
-         * This is important because a progress
-         * request must never prevent the actual
-         * course/lesson content from rendering.
-         */
         const enrolledLessons =
           await getEnrolledLessons();
 
-        /**
-         * Strapi relation data can be returned
-         * in different shapes depending on the
-         * response representation, so handle both
-         * direct and nested relation objects.
-         */
-  const currentCourseLessons =
-  enrolledLessons.filter((lesson) => {
-    const course = lesson.course;
+        const currentCourseLessons =
+          enrolledLessons.filter(
+            (lesson) => {
+              const lessonCourse =
+                lesson.course;
 
-    if (!course) {
-      return false;
-    }
+              if (!lessonCourse) {
+                return false;
+              }
 
-    return (
-      course.documentId ===
-      courseData.documentId
-    );
-  });
+              return (
+                lessonCourse.documentId ===
+                courseData.documentId
+              );
+            }
+          );
+
         setLessons(
           currentCourseLessons
         );
       } catch (error) {
         if (error instanceof ApiError) {
-          setError(error.message);
+          setCourseError(
+            error.message
+          );
+        } else if (error instanceof Error) {
+          setCourseError(
+            error.message
+          );
         } else {
-          setError(
-            "Failed to load the course."
+          setCourseError(
+            "Failed to load course."
           );
         }
       } finally {
@@ -107,6 +111,11 @@ export default function CourseDetailsClient({
     void loadCourse();
   }, [documentId]);
 
+  /*
+   * -----------------------------------------
+   * LOAD COURSE PROGRESS SEPARATELY
+   * -----------------------------------------
+   */
   useEffect(() => {
     async function loadProgress() {
       setLoadingProgress(true);
@@ -118,7 +127,9 @@ export default function CourseDetailsClient({
             documentId
           );
 
-        setCourseProgress(progress);
+        setCourseProgress(
+          progress
+        );
       } catch (error) {
         if (error instanceof ApiError) {
           setProgressError(
@@ -137,21 +148,15 @@ export default function CourseDetailsClient({
     void loadProgress();
   }, [documentId]);
 
-  function getLessonStatus(
-    lesson: Lesson
+  function isLessonCompleted(
+    lessonDocumentId: string
   ): boolean {
     return Boolean(
       courseProgress?.progress.some(
-        (item) => {
-          const progressLesson =
-            item.lesson;
-
-          return (
-            progressLesson?.documentId ===
-              lesson.documentId &&
-            item.completed === true
-          );
-        }
+        (progress) =>
+          progress.lesson?.documentId ===
+            lessonDocumentId &&
+          progress.completed === true
       )
     );
   }
@@ -168,14 +173,14 @@ export default function CourseDetailsClient({
             Loading course...
           </p>
         </div>
-      ) : error ? (
+      ) : courseError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
           <h2 className="text-lg font-semibold text-red-900">
             Unable to open course
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-red-700">
-            {error}
+            {courseError}
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -202,7 +207,7 @@ export default function CourseDetailsClient({
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Course header */}
+          {/* COURSE HEADER */}
           <section className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
@@ -223,7 +228,8 @@ export default function CourseDetailsClient({
                     Instructor:{" "}
                     <span className="font-semibold text-slate-700">
                       {
-                        course.instructor
+                        course
+                          .instructor
                           .username
                       }
                     </span>
@@ -231,7 +237,7 @@ export default function CourseDetailsClient({
                 )}
               </div>
 
-              {/* Progress */}
+              {/* PROGRESS */}
               <div className="w-full shrink-0 rounded-xl bg-slate-50 p-5 lg:w-72">
                 {loadingProgress ? (
                   <>
@@ -245,20 +251,19 @@ export default function CourseDetailsClient({
                       </span>
                     </div>
 
-                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
-                      <div className="h-full w-0 rounded-full bg-blue-600" />
-                    </div>
+                    <div className="mt-3 h-3 rounded-full bg-slate-200" />
                   </>
                 ) : progressError ? (
-                  <div>
+                  <>
                     <p className="text-sm font-semibold text-slate-700">
                       Course Progress
                     </p>
 
                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                      Progress is temporarily unavailable.
+                      Progress is temporarily
+                      unavailable.
                     </p>
-                  </div>
+                  </>
                 ) : (
                   <>
                     <div className="flex items-center justify-between">
@@ -268,7 +273,8 @@ export default function CourseDetailsClient({
 
                       <span className="text-lg font-bold text-blue-600">
                         {
-                          courseProgress?.percentage ??
+                          courseProgress
+                            ?.percentage ??
                           0
                         }%
                       </span>
@@ -279,7 +285,8 @@ export default function CourseDetailsClient({
                         className="h-full rounded-full bg-blue-600 transition-all duration-500"
                         style={{
                           width: `${
-                            courseProgress?.percentage ??
+                            courseProgress
+                              ?.percentage ??
                             0
                           }%`,
                         }}
@@ -288,13 +295,15 @@ export default function CourseDetailsClient({
 
                     <p className="mt-3 text-xs text-slate-500">
                       {
-                        courseProgress?.completedLessons ??
+                        courseProgress
+                          ?.completedLessons ??
                         0
                       }{" "}
                       of{" "}
                       {
-                        courseProgress?.totalLessons ??
-                        lessons.length
+                        courseProgress
+                          ?.totalLessons ??
+                        0
                       }{" "}
                       lessons completed
                     </p>
@@ -304,7 +313,7 @@ export default function CourseDetailsClient({
             </div>
           </section>
 
-          {/* Lessons */}
+          {/* LESSONS */}
           <section>
             <div className="mb-5 flex items-end justify-between gap-4">
               <div>
@@ -341,8 +350,8 @@ export default function CourseDetailsClient({
                 {lessons.map(
                   (lesson, index) => {
                     const completed =
-                      getLessonStatus(
-                        lesson
+                      isLessonCompleted(
+                        lesson.documentId
                       );
 
                     return (

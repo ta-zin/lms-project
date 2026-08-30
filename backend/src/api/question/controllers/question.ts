@@ -91,9 +91,19 @@ export default factories.createCoreController(
         },
       });
 
-    return {
-      data: questions,
-    };
+    const studentQuestions =
+  questions.map((question: any) => {
+    const {
+      correctAnswer,
+      ...safeQuestion
+    } = question;
+
+    return safeQuestion;
+  });
+
+return {
+  data: studentQuestions,
+};
   }
 
   return ctx.forbidden();
@@ -193,9 +203,14 @@ async findOne(ctx) {
       );
     }
 
-    return {
-      data: question,
-    };
+    const {
+  correctAnswer,
+  ...safeQuestion
+} = question;
+
+return {
+  data: safeQuestion,
+};
   }
 
   return ctx.forbidden();
