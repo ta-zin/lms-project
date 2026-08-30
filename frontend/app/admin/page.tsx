@@ -3,7 +3,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 import DashboardShell from "@/components/layout/DashboardShell";
 
@@ -50,7 +49,6 @@ const stats = [
 ] as const;
 
 export default function AdminDashboard() {
-  const searchParams = useSearchParams();
 
   const [dashboardStats, setDashboardStats] =
     useState<DashboardStats>(
