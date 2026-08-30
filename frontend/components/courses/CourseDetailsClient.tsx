@@ -127,9 +127,9 @@ export default function CourseDetailsClient({
             documentId
           );
 
-        setCourseProgress(
-          progress
-        );
+        if ("percentage" in progress) {
+  setCourseProgress(progress);
+}
       } catch (error) {
         if (error instanceof ApiError) {
           setProgressError(
