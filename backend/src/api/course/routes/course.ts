@@ -8,6 +8,7 @@ export default {
         policies: [],
       },
     },
+
     {
       method: "GET",
       path: "/courses/:documentId",
@@ -16,6 +17,7 @@ export default {
         policies: [],
       },
     },
+
     {
       method: "POST",
       path: "/courses",
@@ -24,6 +26,7 @@ export default {
         policies: [],
       },
     },
+
     {
       method: "PUT",
       path: "/courses/:documentId",
@@ -32,6 +35,7 @@ export default {
         policies: [],
       },
     },
+
     {
       method: "DELETE",
       path: "/courses/:documentId",

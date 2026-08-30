@@ -219,96 +219,173 @@ async findOne(ctx) {
       }
     },
 
-    async update(ctx) {
-      const user = ctx.state.user;
+   async update(ctx) {
+  const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized("Authentication required");
-      }
+  if (!user) {
+    return ctx.unauthorized(
+      "Authentication required"
+    );
+  }
 
-      const role = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: { id: user.id },
-          populate: ["role"],
-        });
+  const role = await strapi
+    .query("plugin::users-permissions.user")
+    .findOne({
+      where: {
+        id: user.id,
+      },
+      populate: ["role"],
+    });
 
-      const roleName = role?.role?.name;
+  const roleName = role?.role?.name;
 
-      if (
-        roleName === "Admin" ||
-        roleName === "Content Manager"
-      ) {
-        return await super.update(ctx);
-      }
+  /*
+   * ADMIN + CONTENT MANAGER
+   * can update ANY lesson.
+   */
+  if (
+    roleName === "Admin" ||
+    roleName === "Content Manager"
+  ) {
+    const documentId =
+      ctx.params.documentId;
 
-      if (roleName !== "Instructor") {
-        return ctx.forbidden();
-      }
+    const data = {
+      ...(ctx.request.body?.data || {}),
+    };
 
-      const lesson = await strapi
+    if (!data.title) {
+      return ctx.badRequest(
+        "Title is required"
+      );
+    }
+
+    try {
+      await strapi
         .documents("api::lesson.lesson")
-        .findOne({
-          documentId: ctx.params.documentId,
-          populate: {
-            course: {
-              populate: {
-                instructor: true,
-              },
-            },
-          },
+        .update({
+          documentId,
+          data,
         });
 
-      if (!lesson) {
-        return ctx.notFound("Lesson not found");
-      }
-
-      if (lesson.course?.instructor?.id !== user.id) {
-        return ctx.forbidden(
-          "You can only update lessons from your own courses"
-        );
-      }
-
-      const data = { ...(ctx.request.body?.data || {}) };
-
-      if (data.course) {
-        const course = await strapi
-          .documents("api::course.course")
-          .findOne({
-            documentId: data.course,
-            populate: {
-              instructor: true,
-            },
-          });
-
-        if (!course) {
-          return ctx.notFound("Course not found");
-        }
-
-        if (course.instructor?.id !== user.id) {
-          return ctx.forbidden(
-            "You can only move lessons to your own courses"
-          );
-        }
-      }
-
-      try {
-        const updatedLesson = await strapi
+      const updatedLesson =
+        await strapi
           .documents("api::lesson.lesson")
-          .update({
-            documentId: lesson.documentId,
-            data,
+          .publish({
+            documentId,
           });
 
-        return { data: updatedLesson };
-      } catch (error) {
-        strapi.log.error("UPDATE LESSON ERROR", error);
+      return {
+        data: updatedLesson,
+      };
+    } catch (error) {
+      strapi.log.error(
+        "ADMIN UPDATE LESSON ERROR",
+        error
+      );
 
-        return ctx.internalServerError(
-          "Failed to update lesson"
-        );
-      }
-    },
+      return ctx.internalServerError(
+        "Failed to update lesson"
+      );
+    }
+  }
+
+  /*
+   * INSTRUCTOR
+   * can update only lessons from own courses.
+   */
+  if (roleName !== "Instructor") {
+    return ctx.forbidden();
+  }
+
+  const lesson = await strapi
+    .documents("api::lesson.lesson")
+    .findOne({
+      documentId: ctx.params.documentId,
+      populate: {
+        course: {
+          populate: {
+            instructor: true,
+          },
+        },
+      },
+    });
+
+  if (!lesson) {
+    return ctx.notFound(
+      "Lesson not found"
+    );
+  }
+
+  if (
+    lesson.course?.instructor?.id !==
+    user.id
+  ) {
+    return ctx.forbidden(
+      "You can only update lessons from your own courses"
+    );
+  }
+
+  const data = {
+    ...(ctx.request.body?.data || {}),
+  };
+
+  if (data.course) {
+    const course = await strapi
+      .documents("api::course.course")
+      .findOne({
+        documentId: data.course,
+        populate: {
+          instructor: true,
+        },
+      });
+
+    if (!course) {
+      return ctx.notFound(
+        "Course not found"
+      );
+    }
+
+    if (
+      course.instructor?.id !== user.id
+    ) {
+      return ctx.forbidden(
+        "You can only move lessons to your own courses"
+      );
+    }
+  }
+
+  try {
+    await strapi
+      .documents("api::lesson.lesson")
+      .update({
+        documentId:
+          lesson.documentId,
+        data,
+      });
+
+    const updatedLesson =
+      await strapi
+        .documents("api::lesson.lesson")
+        .publish({
+          documentId:
+            lesson.documentId,
+        });
+
+    return {
+      data: updatedLesson,
+    };
+  } catch (error) {
+    strapi.log.error(
+      "UPDATE LESSON ERROR",
+      error
+    );
+
+    return ctx.internalServerError(
+      "Failed to update lesson"
+    );
+  }
+},
 
     async delete(ctx) {
       const user = ctx.state.user;

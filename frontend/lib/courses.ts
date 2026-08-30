@@ -352,12 +352,10 @@ export async function uncompleteLesson(
 export interface CreateCourseInput {
   title: string;
   description: string;
+  instructor?: number;
 }
 
-export interface UpdateCourseInput {
-  title: string;
-  description: string;
-}
+
 
 export async function createCourse(
   input: CreateCourseInput
@@ -371,11 +369,16 @@ export async function createCourse(
         method: "POST",
         token,
         body: JSON.stringify({
-          data: {
-            title: input.title,
-            description: input.description,
-          },
-        }),
+  data: {
+    title: input.title,
+    description: input.description,
+    ...(input.instructor
+      ? {
+          instructor: input.instructor,
+        }
+      : {}),
+  },
+}),
       }
     );
 
@@ -389,22 +392,39 @@ export async function createCourse(
   return response.data;
 }
 
+export interface UpdateCourseInput {
+  title: string;
+  description: string;
+}
+
 export async function updateCourse(
   documentId: string,
   input: UpdateCourseInput
 ): Promise<Course> {
   const token = requireToken();
 
+  if (!documentId) {
+    throw new ApiError(
+      "Course documentId is required",
+      400
+    );
+  }
+
   const response =
-    await apiFetch<StrapiSingleResponse<Course>>(
-      `/courses/${encodeURIComponent(documentId)}`,
+    await apiFetch<
+      StrapiSingleResponse<Course>
+    >(
+      `/courses/${encodeURIComponent(
+        documentId
+      )}`,
       {
         method: "PUT",
         token,
         body: JSON.stringify({
           data: {
             title: input.title,
-            description: input.description,
+            description:
+              input.description,
           },
         }),
       }
