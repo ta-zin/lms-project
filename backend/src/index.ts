@@ -1,38 +1,213 @@
 import type { Core } from "@strapi/strapi";
 
-const USER_UID =
-  "plugin::users-permissions.user";
-
-const ROLE_UID =
-  "plugin::users-permissions.role";
+const USER_UID = "plugin::users-permissions.user";
+const ROLE_UID = "plugin::users-permissions.role";
+const PERMISSION_UID = "plugin::users-permissions.permission";
 
 const LMS_ADMIN_USERNAME =
   process.env.LMS_ADMIN_USERNAME || "admin";
 
 const LMS_ADMIN_EMAIL =
-  process.env.LMS_ADMIN_EMAIL ||
-  "admin@lms.com";
+  process.env.LMS_ADMIN_EMAIL || "admin@lms.com";
 
 const LMS_ADMIN_PASSWORD =
-  process.env.LMS_ADMIN_PASSWORD ||
-  "Admin@12345";
+  process.env.LMS_ADMIN_PASSWORD || "123456";
 
-const ROLE_NAMES = [
-  "Admin",
-  "Content Manager",
-  "Instructor",
-  "Student",
-] as const;
+const ROLE_CONFIG = {
+  Admin: {
+    type: "admin",
+    description: "Admin role for the LMS",
+
+    permissions: [
+      "api::blog-post.blog-post.create",
+      "api::blog-post.blog-post.delete",
+      "api::blog-post.blog-post.find",
+      "api::blog-post.blog-post.findOne",
+      "api::blog-post.blog-post.manage",
+      "api::blog-post.blog-post.publish",
+      "api::blog-post.blog-post.unpublish",
+      "api::blog-post.blog-post.update",
+
+      "api::course.course.adminDeleteUser",
+      "api::course.course.adminUpdateUserRole",
+      "api::course.course.adminUsers",
+      "api::course.course.create",
+      "api::course.course.delete",
+      "api::course.course.find",
+      "api::course.course.findOne",
+      "api::course.course.update",
+
+      "api::enrollment.enrollment.delete",
+      "api::enrollment.enrollment.find",
+      "api::enrollment.enrollment.findOne",
+
+      "api::lesson-progress.lesson-progress.find",
+      "api::lesson-progress.lesson-progress.findOne",
+      "api::lesson-progress.lesson-progress.getCourseProgress",
+
+      "api::lesson.lesson.create",
+      "api::lesson.lesson.delete",
+      "api::lesson.lesson.find",
+      "api::lesson.lesson.findOne",
+      "api::lesson.lesson.update",
+
+      "api::question.question.create",
+      "api::question.question.delete",
+      "api::question.question.find",
+      "api::question.question.findOne",
+      "api::question.question.update",
+
+      "api::quiz-result.quiz-result.find",
+      "api::quiz-result.quiz-result.findOne",
+
+      "api::quiz.quiz.create",
+      "api::quiz.quiz.delete",
+      "api::quiz.quiz.find",
+      "api::quiz.quiz.findOne",
+      "api::quiz.quiz.update",
+
+      "plugin::users-permissions.auth.logout",
+      "plugin::users-permissions.role.createRole",
+      "plugin::users-permissions.role.deleteRole",
+      "plugin::users-permissions.role.find",
+      "plugin::users-permissions.role.findOne",
+      "plugin::users-permissions.role.updateRole",
+      "plugin::users-permissions.user.me",
+    ],
+  },
+
+  "Content Manager": {
+    type: "content_manager",
+    description: "Content Manager role for the LMS",
+
+    permissions: [
+      "api::blog-post.blog-post.create",
+      "api::blog-post.blog-post.delete",
+      "api::blog-post.blog-post.find",
+      "api::blog-post.blog-post.findOne",
+      "api::blog-post.blog-post.update",
+
+      "api::course.course.create",
+      "api::course.course.delete",
+      "api::course.course.find",
+      "api::course.course.findOne",
+      "api::course.course.update",
+
+      "api::lesson-progress.lesson-progress.find",
+      "api::lesson-progress.lesson-progress.findOne",
+      "api::lesson-progress.lesson-progress.getCourseProgress",
+
+      "api::lesson.lesson.create",
+      "api::lesson.lesson.delete",
+      "api::lesson.lesson.find",
+      "api::lesson.lesson.findOne",
+      "api::lesson.lesson.update",
+
+      "api::quiz.quiz.create",
+      "api::quiz.quiz.delete",
+      "api::quiz.quiz.find",
+      "api::quiz.quiz.findOne",
+      "api::quiz.quiz.update",
+
+      "plugin::users-permissions.role.find",
+      "plugin::users-permissions.role.findOne",
+      "plugin::users-permissions.user.me",
+    ],
+  },
+
+  Instructor: {
+    type: "instructor",
+    description: "Instructor role for the LMS",
+
+    permissions: [
+      "api::blog-post.blog-post.find",
+      "api::blog-post.blog-post.findOne",
+
+      "api::course.course.adminDeleteUser",
+      "api::course.course.adminUpdateUserRole",
+      "api::course.course.adminUsers",
+      "api::course.course.create",
+      "api::course.course.delete",
+      "api::course.course.find",
+      "api::course.course.findOne",
+      "api::course.course.update",
+
+      "api::enrollment.enrollment.find",
+      "api::enrollment.enrollment.findOne",
+
+      "api::lesson-progress.lesson-progress.getCourseProgress",
+
+      "api::lesson.lesson.create",
+      "api::lesson.lesson.delete",
+      "api::lesson.lesson.find",
+      "api::lesson.lesson.findOne",
+      "api::lesson.lesson.update",
+
+      "api::question.question.create",
+      "api::question.question.delete",
+      "api::question.question.find",
+      "api::question.question.findOne",
+      "api::question.question.update",
+
+      "api::quiz-result.quiz-result.find",
+      "api::quiz-result.quiz-result.findOne",
+
+      "api::quiz.quiz.create",
+      "api::quiz.quiz.delete",
+      "api::quiz.quiz.find",
+      "api::quiz.quiz.findOne",
+      "api::quiz.quiz.update",
+
+      "plugin::users-permissions.role.find",
+      "plugin::users-permissions.role.findOne",
+      "plugin::users-permissions.user.find",
+      "plugin::users-permissions.user.findOne",
+      "plugin::users-permissions.user.me",
+    ],
+  },
+
+  Student: {
+    type: "student",
+    description: "Student role for the LMS",
+
+    permissions: [
+      "api::blog-post.blog-post.find",
+      "api::blog-post.blog-post.findOne",
+
+      "api::course.course.find",
+      "api::course.course.findOne",
+
+      "api::enrollment.enrollment.create",
+      "api::enrollment.enrollment.find",
+      "api::enrollment.enrollment.findOne",
+
+      "api::lesson-progress.lesson-progress.create",
+      "api::lesson-progress.lesson-progress.getCourseProgress",
+
+      "api::lesson.lesson.find",
+      "api::lesson.lesson.findOne",
+
+      "api::question.question.find",
+      "api::question.question.findOne",
+
+      "api::quiz-result.quiz-result.create",
+      "api::quiz-result.quiz-result.find",
+      "api::quiz-result.quiz-result.findOne",
+
+      "api::quiz.quiz.find",
+      "api::quiz.quiz.findOne",
+
+      "plugin::users-permissions.role.find",
+      "plugin::users-permissions.role.findOne",
+      "plugin::users-permissions.user.findOne",
+      "plugin::users-permissions.user.me",
+    ],
+  },
+} as const;
 
 export default {
-  /**
-   * Runs before the application is initialized.
-   */
   register() {},
 
-  /**
-   * Runs before the application starts.
-   */
   async bootstrap({
     strapi,
   }: {
@@ -43,59 +218,128 @@ export default {
         .plugin("users-permissions")
         .service("user");
 
-      /*
-       * Make sure the LMS roles exist.
-       */
       const roles: Record<string, any> = {};
 
-      for (const roleName of ROLE_NAMES) {
+      /*
+       * Ensure LMS roles exist.
+       */
+      for (const [roleName, config] of Object.entries(
+        ROLE_CONFIG
+      )) {
         let role = await strapi.db
           .query(ROLE_UID)
           .findOne({
             where: {
-              name: roleName,
+              type: config.type,
             },
           });
 
+        /*
+         * Fallback for an existing role whose type may
+         * not have been set correctly.
+         */
         if (!role) {
-          const type =
-            roleName
-              .toLowerCase()
-              .replace(/\s+/g, "-");
+          role = await strapi.db
+            .query(ROLE_UID)
+            .findOne({
+              where: {
+                name: roleName,
+              },
+            });
+        }
 
+        if (!role) {
           role = await strapi.db
             .query(ROLE_UID)
             .create({
               data: {
                 name: roleName,
-                type,
-                description: `${roleName} role for the LMS`,
+                type: config.type,
+                description: config.description,
               },
             });
 
           strapi.log.info(
             `Created LMS role: ${roleName}`
           );
+        } else {
+          /*
+           * Keep role metadata consistent.
+           */
+          role = await strapi.db
+            .query(ROLE_UID)
+            .update({
+              where: {
+                id: role.id,
+              },
+              data: {
+                name: roleName,
+                type: config.type,
+                description: config.description,
+              },
+            });
         }
 
+        /*
+         * Ensure every required permission exists.
+         */
+        const permissionIds: number[] = [];
+
+        for (const action of config.permissions) {
+          let permission = await strapi.db
+            .query(PERMISSION_UID)
+            .findOne({
+              where: {
+                action,
+              },
+            });
+
+          if (!permission) {
+            permission = await strapi.db
+              .query(PERMISSION_UID)
+              .create({
+                data: {
+                  action,
+                },
+              });
+          }
+
+          permissionIds.push(permission.id);
+        }
+
+        /*
+         * Sync the role ↔ permission relationship.
+         */
+        await strapi.db
+          .query(ROLE_UID)
+          .update({
+            where: {
+              id: role.id,
+            },
+            data: {
+              permissions: {
+                set: permissionIds,
+              },
+            },
+          });
+
         roles[roleName] = role;
+
+        strapi.log.info(
+          `LMS role ready: ${roleName} (${permissionIds.length} permissions)`
+        );
       }
 
-      const studentRole =
-        roles["Student"];
-
-      const adminRole =
-        roles["Admin"];
+      const studentRole = roles["Student"];
+      const adminRole = roles["Admin"];
 
       /*
-       * Make Student the default role
-       * for public registrations.
+       * Make Student the default registration role.
        */
-      const usersPermissionsStore =
-        strapi.store({
-          type: "plugin",
-          name: "users-permissions",
-        });
+      const usersPermissionsStore = strapi.store({
+        type: "plugin",
+        name: "users-permissions",
+      });
 
       const advancedSettings =
         (await usersPermissionsStore.get({
@@ -106,13 +350,13 @@ export default {
         key: "advanced",
         value: {
           ...advancedSettings,
-          default_role: studentRole.id,
+          allow_register: true,
+          default_role: "student",
         },
       });
 
       /*
-       * Create the fixed LMS Admin user
-       * if it does not already exist.
+       * Create or verify the fixed LMS Admin user.
        */
       let adminUser = await strapi.db
         .query(USER_UID)
@@ -123,7 +367,7 @@ export default {
         });
 
       if (!adminUser) {
-        adminUser = await userService.add({
+        await userService.add({
           username: LMS_ADMIN_USERNAME,
           email: LMS_ADMIN_EMAIL,
           password: LMS_ADMIN_PASSWORD,
@@ -136,10 +380,6 @@ export default {
           `LMS Admin created: ${LMS_ADMIN_EMAIL}`
         );
       } else {
-        /*
-         * Make sure the existing fixed account
-         * is always an Admin and active.
-         */
         await strapi.db
           .query(USER_UID)
           .update({
@@ -147,8 +387,7 @@ export default {
               id: adminUser.id,
             },
             data: {
-              username:
-                LMS_ADMIN_USERNAME,
+              username: LMS_ADMIN_USERNAME,
               confirmed: true,
               blocked: false,
               role: adminRole.id,
@@ -159,6 +398,10 @@ export default {
           `LMS Admin verified: ${LMS_ADMIN_EMAIL}`
         );
       }
+
+      strapi.log.info(
+        "LMS roles and permissions synchronized successfully."
+      );
     } catch (error) {
       strapi.log.error(
         "LMS bootstrap error",
