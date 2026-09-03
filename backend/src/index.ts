@@ -283,29 +283,45 @@ export default {
         /*
          * Ensure every required permission exists.
          */
+        
+
         const permissionIds: number[] = [];
 
-        for (const action of config.permissions) {
-          let permission = await strapi.db
-            .query(PERMISSION_UID)
-            .findOne({
-              where: {
-                action,
-              },
-            });
+for (const action of config.permissions) {
+  let permission = await strapi.db
+    .query(PERMISSION_UID)
+    .findOne({
+      where: {
+        action,
+        role: role.id,
+      },
+    });
 
-          if (!permission) {
-            permission = await strapi.db
-              .query(PERMISSION_UID)
-              .create({
-                data: {
-                  action,
-                },
-              });
-          }
+  if (!permission) {
+    permission = await strapi.db
+      .query(PERMISSION_UID)
+      .create({
+        data: {
+          action,
+          enabled: true,
+          role: role.id,
+        },
+      });
+  } else {
+    permission = await strapi.db
+      .query(PERMISSION_UID)
+      .update({
+        where: {
+          id: permission.id,
+        },
+        data: {
+          enabled: true,
+        },
+      });
+  }
 
-          permissionIds.push(permission.id);
-        }
+  permissionIds.push(permission.id);
+}
 
         /*
          * Sync the role ↔ permission relationship.
