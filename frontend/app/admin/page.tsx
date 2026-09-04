@@ -203,6 +203,13 @@ export default function AdminDashboard() {
           >
             Manage Blog
           </Link>
+
+          <Link
+  href="/admin/quizzes"
+  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+>
+  Manage Quizzes
+</Link>
         </div>
       </div>
     </DashboardShell>

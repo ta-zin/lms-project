@@ -192,6 +192,7 @@ export interface CreateQuizInput {
 
 export interface UpdateQuizInput {
   title: string;
+  course: string;
 }
 
 export interface CreateQuestionInput {
@@ -258,6 +259,7 @@ export async function updateQuiz(
         body: JSON.stringify({
           data: {
             title: input.title,
+            course: input.course,
           },
         }),
       }

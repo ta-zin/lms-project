@@ -307,54 +307,89 @@ async find(ctx) {
       }
     },
 
-    async update(ctx) {
-      const user = ctx.state.user;
+async update(ctx) {
+  const user = ctx.state.user;
 
-      if (!user) {
-        return ctx.unauthorized(
-          "Authentication required"
-        );
-      }
+  if (!user) {
+    return ctx.unauthorized(
+      "Authentication required"
+    );
+  }
 
-      const role = await strapi
-        .query("plugin::users-permissions.user")
-        .findOne({
-          where: { id: user.id },
-          populate: ["role"],
-        });
+  const role = await strapi
+    .query("plugin::users-permissions.user")
+    .findOne({
+      where: {
+        id: user.id,
+      },
+      populate: ["role"],
+    });
 
-      const roleName = role?.role?.name;
+  const roleName = role?.role?.name;
 
-      if (
-        roleName === "Admin" ||
-        roleName === "Content Manager"
-      ) {
-        return await super.update(ctx);
-      }
+  if (
+    roleName !== "Admin" &&
+    roleName !== "Content Manager" &&
+    roleName !== "Instructor"
+  ) {
+    return ctx.forbidden(
+      "You are not allowed to update quizzes"
+    );
+  }
 
-      if (roleName !== "Instructor") {
-        return ctx.forbidden();
-      }
+  const documentId =
+    ctx.params.documentId;
 
-      const quiz = await strapi
-        .documents("api::quiz.quiz")
-        .findOne({
-          documentId: ctx.params.documentId,
-          populate: {
-            course: {
-              populate: {
-                instructor: true,
-              },
+  if (!documentId) {
+    return ctx.badRequest(
+      "Quiz documentId is required"
+    );
+  }
+
+  const data = {
+    ...(ctx.request.body?.data || {}),
+  };
+
+  if (!data.title) {
+    return ctx.badRequest(
+      "Quiz title is required"
+    );
+  }
+
+  if (!data.course) {
+    return ctx.badRequest(
+      "Course is required"
+    );
+  }
+
+  try {
+    /*
+     * Find the existing quiz.
+     */
+    const quiz = await strapi
+      .documents("api::quiz.quiz")
+      .findOne({
+        documentId,
+        populate: {
+          course: {
+            populate: {
+              instructor: true,
             },
           },
-        });
+        },
+      });
 
-      if (!quiz) {
-        return ctx.notFound(
-          "Quiz not found"
-        );
-      }
+    if (!quiz) {
+      return ctx.notFound(
+        "Quiz not found"
+      );
+    }
 
+    /*
+     * Instructor:
+     * only their own course quizzes.
+     */
+    if (roleName === "Instructor") {
       if (
         quiz.course?.instructor?.id !==
         user.id
@@ -364,61 +399,104 @@ async find(ctx) {
         );
       }
 
-      const data = {
-        ...(ctx.request.body?.data || {}),
-      };
-
       /*
-       * If course is changed, verify that the new course
-       * also belongs to the instructor.
+       * If instructor changes the course,
+       * the new course must also belong
+       * to that instructor.
        */
-      if (data.course) {
-        const course = await strapi
-          .documents("api::course.course")
-          .findOne({
-            documentId: data.course,
-            populate: {
-              instructor: true,
-            },
-          });
+      const newCourse = await strapi
+        .documents("api::course.course")
+        .findOne({
+          documentId: data.course,
+          populate: {
+            instructor: true,
+          },
+        });
 
-        if (!course) {
-          return ctx.notFound(
-            "Course not found"
-          );
-        }
-
-        if (
-          course.instructor?.id !== user.id
-        ) {
-          return ctx.forbidden(
-            "You can only move quizzes to your own courses"
-          );
-        }
-      }
-
-      try {
-        const updatedQuiz = await strapi
-          .documents("api::quiz.quiz")
-          .update({
-            documentId: quiz.documentId,
-            data,
-          });
-
-        return {
-          data: updatedQuiz,
-        };
-      } catch (error) {
-        strapi.log.error(
-          "UPDATE QUIZ ERROR",
-          error
-        );
-
-        return ctx.internalServerError(
-          "Failed to update quiz"
+      if (!newCourse) {
+        return ctx.notFound(
+          "Course not found"
         );
       }
-    },
+
+      if (
+        newCourse.instructor?.id !==
+        user.id
+      ) {
+        return ctx.forbidden(
+          "You can only move quizzes to your own courses"
+        );
+      }
+    }
+
+    /*
+     * Admin / Content Manager:
+     * can update any quiz and move it
+     * to any course.
+     */
+    if (
+      roleName === "Admin" ||
+      roleName === "Content Manager"
+    ) {
+      const newCourse = await strapi
+        .documents("api::course.course")
+        .findOne({
+          documentId: data.course,
+        });
+
+      if (!newCourse) {
+        return ctx.notFound(
+          "Course not found"
+        );
+      }
+    }
+
+    /*
+     * Strapi 5 Document Service update.
+     */
+    const updatedQuiz = await strapi
+      .documents("api::quiz.quiz")
+      .update({
+        documentId,
+        data: {
+          title: data.title,
+          course: data.course,
+        },
+      });
+
+    /*
+     * Publish the updated document because
+     * Quiz uses draftAndPublish.
+     */
+    await strapi
+      .documents("api::quiz.quiz")
+      .publish({
+        documentId,
+      });
+
+    const finalQuiz = await strapi
+      .documents("api::quiz.quiz")
+      .findOne({
+        documentId,
+        populate: {
+          course: true,
+        },
+      });
+
+    return {
+      data: finalQuiz,
+    };
+  } catch (error) {
+    strapi.log.error(
+      "UPDATE QUIZ ERROR",
+      error
+    );
+
+    return ctx.internalServerError(
+      "Failed to update quiz"
+    );
+  }
+},
 
     async delete(ctx) {
       const user = ctx.state.user;

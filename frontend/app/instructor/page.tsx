@@ -315,6 +315,12 @@ export default function InstructorDashboard() {
             >
               Manage Lessons
             </Link>
+            <Link
+    href="/instructor/quizzes"
+    className="inline-flex rounded-lg border border-purple-300 bg-white px-5 py-3 text-sm font-semibold text-purple-700 transition hover:bg-purple-50"
+  >
+    Manage Quizzes
+  </Link>
           </div>
         </div>
 
