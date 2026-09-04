@@ -630,7 +630,12 @@ setCourses((currentCourses) => [
                       </div>
 
                       <div className="flex shrink-0 flex-wrap gap-2">
-                        
+                        <Link
+            href="/admin/lessons"
+            className="rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-700"
+                    >
+            Lessons
+          </Link>
 
                         <button
                           type="button"

@@ -178,11 +178,14 @@ export default function InstructorDashboard() {
 
         {/* STATS */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          
+        <Link
+              href="/instructor/courses" className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+          >
+          
             <p className="text-sm font-medium text-slate-500">
               My Courses
             </p>
-
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {loading ? "—" : courseCount}
             </p>
@@ -190,7 +193,14 @@ export default function InstructorDashboard() {
             <p className="mt-2 text-xs text-slate-500">
               Courses created and managed by you.
             </p>
-          </div>
+            <p className="mt-4 text-sm font-semibold text-blue-600">
+              View My Courses →
+            </p>
+                </Link>
+
+
+
+
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-medium text-slate-500">
@@ -206,7 +216,7 @@ export default function InstructorDashboard() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <Link href="/instructor/progress" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-medium text-slate-500">
               Student Progress
             </p>
@@ -221,7 +231,10 @@ export default function InstructorDashboard() {
               Average completion across students in
               your courses.
             </p>
-          </div>
+            <p className="mt-4 text-sm font-semibold text-blue-600">
+              View Progress →
+            </p>
+          </Link>
         </div>
 
         {/* ADDITIONAL SUMMARY */}

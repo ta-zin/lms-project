@@ -317,6 +317,7 @@ setLessons(sortedLessons);
       title="Manage Lessons"
       description="Create, edit, and delete lessons across all courses."
     >
+      
       <div className="space-y-8">
         {/* FORM */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
